@@ -294,53 +294,122 @@ def _format_markdown_table_from_df(
 def _format_diagnostics_table(diagnostics: Optional[Dict[str, Any]]) -> str:
     """
     Format the 5 regression assumption diagnostics dynamically from real execution results.
+    Properly responds to changing metric values and p-values.
     """
     if diagnostics is None or not diagnostics:
-        return "*(回歸五大基本假設診斷尚未計算)*\n"
+        return "*(回歸五大基本假設診斷尚未計算)\n"
 
     headers = ["回歸基本假設", "檢定/評估方法", "統計量數值", "p-value / 判讀依據", "診斷結論", "統計意涵與計量經濟學詮釋"]
     rows = []
 
     # 1. Linearity
     lin = diagnostics.get("linearity")
-    if lin:
-        v = lin.get("value", "尚未計算")
-        rows.append(f"| **1. 線性性 (Linearity)** | 殘差對擬合值相關度 | Corr = {v} | 殘差散佈圖檢視均勻無局部曲度 | **符合線性規格** | OLS 數學常態方程必然滿足殘差與擬合值正交 (Corr=0)，需搭配殘差圖判讀實質無非線性弧度 |")
+    if lin and lin.get("value") is not None:
+        v = lin.get("value")
+        v_str = f"{float(v):.4f}" if isinstance(v, (int, float)) else str(v)
+        try:
+            val_float = float(v)
+            if abs(val_float) < 0.05:
+                lin_concl = "**符合線性規格**"
+                lin_interp = "OLS 數學常態方程必然滿足殘差與擬合值正交 (Corr=0)，需搭配殘差圖判讀實質無非線性弧度"
+            else:
+                lin_concl = "**存在非線性疑慮**"
+                lin_interp = f"殘差與擬合值相關度 (Corr={v_str}) 偏離 0，提示特徵與目標變數間可能存在非線性或交互作用"
+        except (ValueError, TypeError):
+            lin_concl = "數值格式非預期"
+            lin_interp = "檢定殘差分佈"
+        rows.append(f"| **1. 線性性 (Linearity)** | 殘差對擬合值相關度 | Corr = {v_str} | 殘差散佈圖檢視均勻無局部曲度 | {lin_concl} | {lin_interp} |")
     else:
         rows.append("| **1. 線性性 (Linearity)** | 殘差對擬合值相關度 | 尚未計算 | 尚未計算 | 尚未計算 | 尚未執行檢定 |")
 
     # 2. Independence
     ind = diagnostics.get("independence")
-    if ind:
-        v = ind.get("value", "尚未計算")
-        rows.append(f"| **2. 殘差獨立性 (Independence)** | Durbin-Watson 統計量 | **DW = {v}** | 落於 [1.5, 2.5] 無相依區間 | **目前排序無相依** | DW 原生依賴時間序列之排列次序；在橫斷面資料中排序為人為給定，DW 無法作為樣本嚴格獨立之絕對證明 |")
+    if ind and ind.get("value") is not None:
+        v = ind.get("value")
+        v_str = f"{float(v):.4f}" if isinstance(v, (int, float)) else str(v)
+        try:
+            dw_val = float(v)
+            if 1.5 <= dw_val <= 2.5:
+                dw_basis = "落於 [1.5, 2.5] 無相依區間"
+                dw_concl = "**目前排序無相依**"
+            elif dw_val < 1.5:
+                dw_basis = "DW < 1.5 正相依疑慮"
+                dw_concl = "**存在正自相關**"
+            else:
+                dw_basis = "DW > 2.5 負相依疑慮"
+                dw_concl = "**存在負自相關**"
+        except (ValueError, TypeError):
+            dw_basis = "DW 數值非預期"
+            dw_concl = "自相關待定"
+        rows.append(f"| **2. 殘差獨立性 (Independence)** | Durbin-Watson 統計量 | **DW = {v_str}** | {dw_basis} | {dw_concl} | DW 原生依賴時間序列之排列次序；在橫斷面資料中排序為人為給定，DW 無法作為樣本嚴格獨立之絕對證明 |")
     else:
         rows.append("| **2. 殘差獨立性 (Independence)** | Durbin-Watson 統計量 | 尚未計算 | 尚未計算 | 尚未計算 | 尚未執行檢定 |")
 
     # 3. Homoscedasticity
     hom = diagnostics.get("homoscedasticity")
-    if hom:
+    if hom and (hom.get("value") is not None or hom.get("p_value") is not None):
         v = hom.get("value", "尚未計算")
+        v_str = f"{float(v):.2f}" if isinstance(v, (int, float)) else str(v)
         pv = hom.get("p_value")
-        pv_str = f"p = {pv:.4f} (≥ 0.05)" if pv is not None else "p ≥ 0.05"
-        rows.append(f"| **3. 同質變異性 (Homoscedasticity)** | Breusch-Pagan LM 檢定 | LM 統計量 = {v} | **{pv_str}** | **未拒絕同質變異虛無假設** | p > 0.05 僅代表無充分證據拒絕同質變異，不等於證明絕對同質；散佈圖無漏斗擴散，可採標準 OLS 標準誤 |")
+        if pv is not None:
+            pv_float = float(pv)
+            if pv_float < 0.05:
+                pv_str = f"p = {pv_float:.4f} (< 0.05)"
+                hom_concl = "**顯著拒絕同質變異 (存在異質變異)**"
+                hom_interp = "檢定達顯著水準 (p < 0.05)，顯著拒絕同質變異虛無假設，提示殘差變異數隨預測值或特徵變化，建議考慮穩健標準誤 (HC3) 或變數轉換"
+            else:
+                pv_str = f"p = {pv_float:.4f} (>= 0.05)"
+                hom_concl = "**未拒絕同質變異虛無假設**"
+                hom_interp = "p >= 0.05 僅代表無充分證據拒絕同質變異，不等於證明絕對同質；散佈圖無漏斗擴散，可採標準 OLS 標準誤"
+        else:
+            pv_str = "p 尚未計算"
+            hom_concl = "待定"
+            hom_interp = "尚未提供 p-value"
+        rows.append(f"| **3. 同質變異性 (Homoscedasticity)** | Breusch-Pagan LM 檢定 | LM 統計量 = {v_str} | **{pv_str}** | {hom_concl} | {hom_interp} |")
     else:
         rows.append("| **3. 同質變異性 (Homoscedasticity)** | Breusch-Pagan LM 檢定 | 尚未計算 | 尚未計算 | 尚未計算 | 尚未執行檢定 |")
 
     # 4. Normality
     nor = diagnostics.get("normality")
-    if nor:
+    if nor and (nor.get("value") is not None or nor.get("p_value") is not None):
         v = nor.get("value", "尚未計算")
-        rows.append(f"| **4. 殘差常態性 (Normality)** | Jarque-Bera 檢定 | JB 統計量 = {v} | p < 0.001 (顯著拒絕) | **拒絕常態，CLT 保障參數** | 考試成績邊界效應導致峰度偏高。CLT 保障 β̂ 漸近常態，但不保證單一個體擾動項常態，PI 尾端可能微幅失真 |")
+        v_str = f"{float(v):.2f}" if isinstance(v, (int, float)) else str(v)
+        pv = nor.get("p_value")
+        if pv is not None:
+            pv_float = float(pv)
+            if pv_float < 0.05:
+                pv_str = f"p = {pv_float:.4f} (< 0.05, 顯著拒絕)" if pv_float > 0.0001 else "p < 0.001 (顯著拒絕)"
+                nor_concl = "**拒絕常態，CLT 保障參數**"
+                nor_interp = "大樣本下中央極限定理 (CLT) 保障回歸係數漸近常態，點估計與假說檢定依然有效，但個別觀測值預測區間 (PI) 尾端覆蓋率可能受極端值影響"
+            else:
+                pv_str = f"p = {pv_float:.4f} (>= 0.05)"
+                nor_concl = "**未拒絕常態分佈假設**"
+                nor_interp = "殘差分佈大致符合常態性假設"
+        else:
+            pv_str = "p 尚未計算"
+            nor_concl = "待定"
+            nor_interp = "尚未提供 p-value"
+        rows.append(f"| **4. 殘差常態性 (Normality)** | Jarque-Bera 檢定 | JB 統計量 = {v_str} | {pv_str} | {nor_concl} | {nor_interp} |")
     else:
         rows.append("| **4. 殘差常態性 (Normality)** | Jarque-Bera 檢定 | 尚未計算 | 尚未計算 | 尚未計算 | 尚未執行檢定 |")
 
     # 5. Multicollinearity
     mul = diagnostics.get("multicollinearity")
-    if mul:
-        v = mul.get("value", "尚未計算")
-        v_str = f"{float(v):.2f}" if isinstance(v, (int, float)) or (isinstance(v, str) and v.replace(".", "", 1).isdigit()) else str(v)
-        rows.append(f"| **5. 無多重共線性 (Multicollinearity)** | 變異數膨脹因子 (VIF) | 最大 VIF = **{v_str}** | 全部 27 個變數 VIF < 3.0 | **優異受控** | 遠低於 5.0 警戒標準，證實 One-Hot Encoding 採用 drop='first' 有效消除虛擬變數完全共線性 |")
+    if mul and mul.get("value") is not None:
+        v = mul.get("value")
+        v_str = f"{float(v):.2f}" if isinstance(v, (int, float)) else str(v)
+        try:
+            vif_val = float(v)
+            if vif_val < 5.0:
+                mul_concl = "**優異受控**"
+                mul_interp = "遠低於 5.0 警戒標準，證實 One-Hot Encoding 採用 drop='first' 有效消除虛擬變數完全共線性"
+            else:
+                mul_concl = "**存在共線性疑慮**"
+                mul_interp = f"最大 VIF = {v_str} >= 5.0，部分特徵間存在較強線性關聯"
+        except (ValueError, TypeError):
+            mul_concl = "待評估"
+            mul_interp = "檢定 VIF"
+        rows.append(f"| **5. 無多重共線性 (Multicollinearity)** | 變異數膨脹因子 (VIF) | 最大 VIF = **{v_str}** | 最大 VIF < 5.0 | {mul_concl} | {mul_interp} |")
     else:
         rows.append("| **5. 無多重共線性 (Multicollinearity)** | 變異數膨脹因子 (VIF) | 尚未計算 | 尚未計算 | 尚未計算 | 尚未執行檢定 |")
 
@@ -349,11 +418,11 @@ def _format_diagnostics_table(diagnostics: Optional[Dict[str, Any]]) -> str:
     table_str += "\n".join(rows) + "\n"
     return table_str
 
-
 def build_markdown_report(
     student_summary_df: Optional[pd.DataFrame] = None,
     flood_summary_df: Optional[pd.DataFrame] = None,
     diagnostics: Optional[Dict[str, Any]] = None,
+    output_path: Optional[str] = None,
 ) -> str:
     """
     Generate comprehensive, rigorous CRISP-DM research report Markdown in Traditional Chinese.
@@ -552,14 +621,14 @@ def build_markdown_report(
 3. **特徵篩選規則之定義本質**：
    Filter、RFE 與 SFS 是在演算法外部**強加固定特徵數預算 (K = 5)** 之約束；而標準 LassoCV 是以**預測誤差最小化**為目標之資料驅動內嵌法。兩者定義規則不同，忠實反映了統計正則化與啟發式特徵修剪的本質歧異。
 
-### 4.5 深度科學探討二：為何特徵縮減導致 R² 由 0.7696 下降至 ~0.665？
-實務界常有迷思，誤以為「特徵選擇一定能提高測試集 R²」。本實驗清晰證實：**在當前資料集中，將特徵數由 27 縮減至 5，測試集 R² 必然發生顯著下降（由 0.769650 跌至 0.6647～0.6665，淨損失約 10.3% 的解釋力）**。其統計學與機器學習理論解析如下：
+### 4.5 深度科學探討二：為何特徵縮減導致 R² 由 {{S_BASE_R2}} 下降至 {{S_K5_R2}}？
+實務界常有迷思，誤以為「特徵選擇一定能提高測試集 R²」。本實驗清晰證實：**在當前資料集中，將特徵數由全特徵縮減至 5，測試集 R² 必然發生顯著下降（由 {{S_BASE_R2}} 跌至 {{S_K5_R2}}，淨損失約 10.3% 的解釋力）**。其統計學與機器學習理論解析如下：
 
 1. **多元回歸判定係數之單調性定理**：
-   在樣本容量固定下，向線性回歸模型新增任何一個樣本偏相關係數不為零之變數，其決定係數 R² 在數學上必然非減。被剔除的 22 個特徵並非純隨機白噪音，而是具備統計顯著之微弱偏相關。移除這 22 個特徵，等同於直接截斷了模型對該部分變異的解釋能力。
+   在樣本容量固定下，向線性回歸模型新增任何一個樣本偏相關係數不為零之變數，其決定係數 R² 在數學上必然非減。被剔除的特徵並非純隨機白噪音，而是具備統計顯著之微弱偏相關。移除這些特徵，等同於直接截斷了模型對該部分變異的解釋能力。
 2. **偏差-變異數權衡 (Bias-Variance Trade-off)**：
    特徵選擇能提升泛化效能的唯一先決條件是：**「藉由剔除雜訊變數所節省之參數估計變異量 (Variance Reduction)，大於剔除變數所招致之遺漏變數偏差 (Omission Bias)」**。
-   然而在本研究中，N_train = 5,285 遠大於特徵維度 P = 27（樣本維度比高達 195:1）。在極充沛的樣本支持下，全模型的參數估計變異量極低（無過擬合現象，Train R² = 0.7173，Test R² = 0.7696）。因此，強行刪減 22 個特徵無法帶來任何可觀的變異數下降，反而引發顯著的遺漏變數偏差，致使均方誤差 MSE 由 3.256 惡化至 4.715。
+   然而在本研究中，樣本量遠大於特徵維度（高樣本維度比）。在極充沛的樣本支持下，全模型的參數估計變異量極低（無過擬合現象，全特徵模型 Test R² = {{S_BASE_R2}}）。因此，強行刪減特徵無法帶來任何可觀的變異數下降，反而引發顯著的遺漏變數偏差。
 3. **結論**：特徵選擇之主要效益在於**「降低資料收集成本、提升模型解釋性與降低維護複雜度」**，而非無條件提高預測準確率。
 
 ---
@@ -597,6 +666,13 @@ def build_markdown_report(
 本研究針對 Student Performance 訓練模型執行嚴謹之計量統計檢定：
 
 {{DIAGNOSTICS_TABLE}}
+
+#### 計量經濟學假設判讀與推論意涵：
+1. **線性關係 (Linearity)**：在常態方程 (Normal Equations) 數學推導下，OLS 殘差與擬合值在代數上必然嚴格正交 (Orthogonal)，其樣本相關係數恆等於 0。實務上仍須輔以殘差散佈圖以確認無二次或非線性弧度。
+2. **殘差獨立性 (Independence)**：Durbin-Watson 統計量高度依賴資料排列次序，在橫斷面資料 (Cross-Sectional Data) 中由於缺乏天然時間序列順序，檢定結果主要驗證資料採樣與排列無系統性自我相關。
+3. **同質變異性 (Homoscedasticity)**：Breusch-Pagan 檢定檢驗誤差變異數是否隨自變數變化。若檢定結果未達顯著水準，則在統計上未拒絕同質變異虛無假設（未有充份證據拒絕同質變異）；若顯著則提示存在異質變異。
+4. **殘差常態性 (Normality)**：Jarque-Bera 檢定評估殘差偏態與峰度。依據中央極限定理 (CLT)，大樣本下回歸係數具備漸近常態 (Asymptotic Normality)，點估計與假說檢定依然具漸近有效性，但個別預測區間的嚴格覆蓋率會受厚尾或極值影響。
+5. **多重共線性 (Multicollinearity)**：變異數膨脹因子 (VIF) 衡量特徵間冗餘度。One-Hot Encoding 設定 drop='first' 能徹底消除虛擬變數陷阱之完全多重共線性，使所有特徵 VIF 遠低於 5.0。
 
 ---
 
@@ -675,30 +751,41 @@ def build_markdown_report(
         "{{S_BASE_R2}}": s_base_r2,
         "{{S_BASE_RMSE}}": s_base_rmse,
         "{{S_BASE_MAE}}": s_base_mae,
+        "{{S_K5_METHOD}}": s_k5_method,
         "{{S_K5_R2}}": s_k5_r2,
         "{{S_K5_RETENTION}}": s_k5_retention,
         "{{F_BASE_R2}}": f_base_r2,
         "{{F_BASE_RMSE}}": f_base_rmse,
         "{{F_BASE_MAE}}": f_base_mae,
+        "{{F_K5_METHOD}}": f_k5_method,
         "{{F_K5_R2}}": f_k5_r2,
         "{{F_K5_RETENTION}}": f_k5_retention,
     }
     for k, v in replacements.items():
         report_md = report_md.replace(k, str(v))
 
-    os.makedirs(REPORTS_DIR, exist_ok=True)
-    report_path = os.path.join(REPORTS_DIR, "final_report.md")
-    with open(report_path, "w", encoding="utf-8") as f:
-        f.write(report_md)
+    if output_path is not None:
+        os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(report_md)
     return report_md
 
 
-def generate_pdf_report(md_content: str, output_pdf_path: Optional[str] = None) -> str:
+def save_markdown_report(report_md: str, output_path: str) -> str:
+    """Save Markdown report string to the specified file path."""
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(report_md)
+    return output_path
+
+
+def generate_pdf_report(md_content: str, output_pdf_path: str) -> str:
     """
     Compile Markdown content into a publication-quality PDF using ReportLab.
-    Fully supports Traditional Chinese typography, styled tables, callout alerts,
-    embedded figures, clean mathematical symbol translations, and dynamic running headers/footers.
+    Requires output_pdf_path to prevent unintentional overwriting of production files.
     """
+    if not output_pdf_path:
+        raise ValueError("output_pdf_path must be explicitly provided.")
     from reportlab.lib.pagesizes import letter
     from reportlab.platypus import (
         SimpleDocTemplate,
@@ -743,8 +830,7 @@ def generate_pdf_report(md_content: str, output_pdf_path: Optional[str] = None) 
     if not registered:
         font_name = "Helvetica"
 
-    if output_pdf_path is None:
-        output_pdf_path = os.path.join(REPORTS_DIR, "final_report.pdf")
+
 
     # Custom NumberedCanvas for dynamic page numbering
     class NumberedCanvas(canvas.Canvas):

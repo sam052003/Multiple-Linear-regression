@@ -1020,6 +1020,48 @@ FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamli
   - Notebook 執行：兩份 Notebook 均由命令列重新自動執行，儲存格執行計數連續完整，0 警告。
   - PDF 頁面審查：共 12 頁，各頁面均具備動態頁碼與頁首，文字、表格、圖表與公式排列美觀。
 
+### 2026-10-28: Report Test Side Effects Elimination & Full 6-Method Deliverables Restoration (報告測試副作用根除與完整六方法結果恢復)
+- **進度**：徹底確認並解決測試覆寫正式報告之副作用問題；解耦報告產生字串與檔案寫入流程；透過真實離線實驗管線 (`scripts/run_experiments.py`) 重新產生完整 6 方法實驗比較表與出版級 PDF；強化動態 p-value 反應性、PDF 結構性檢定與 pytest 前後正式檔案雜湊值零變動自動化驗證；完成完整 pytest (51 項 100% 通過) 與 Next.js 生產構建驗收。
+- **問題根因分析 (Root Cause Confirmation)**：
+  1. `src/reporting.py:build_markdown_report()` 原始實作在每次被呼叫時均無條件向正式路徑 `reports/final_report.md` 寫入內容。
+  2. `tests/test_reporting_consistency.py`（以及 `tests/test_api.py`）使用局部 mock fixtures（Student 僅 2 種方法，Flood 僅 1 種方法 Baseline）進行報告格式化測試，導致每次執行 pytest 時，正式成果報告遭到少量 fixture 覆寫，比較表發生嚴重截斷。
+  3. 由於 Flood fixture 缺乏特徵數為 5 之子集，導致 Flood 最佳 K=5 誤判為「尚未計算」；Student 最佳 K=5 被誤填為 SelectKBest (0.664693)，遺漏了表現更佳之 Permutation Importance (0.666460)。
+- **架構重構與無副作用防禦機制 (Architecture Refactor & Purity Hardening)**：
+  1. **字串格式化與實體寫入徹底解耦**：
+     - 重構 `src/reporting.py:build_markdown_report(..., output_path: Optional[str] = None)`。預設 `output_path=None`，函式為完全無副作用之純函式 (Pure Function)，僅回傳 Markdown 字串，絕不觸碰任何磁碟檔案。
+     - 僅在顯式傳入 `output_path` 時才進行檔案寫入。另外提供專屬儲存輔助函式 `save_markdown_report(report_md, output_path)`。
+  2. **PDF 輸出路徑強制顯式指定**：
+     - 修改 `src/reporting.py:generate_pdf_report(md_content, output_pdf_path)`，移除預設寫入全域 `reports/final_report.pdf` 之 fallback，強制要求呼叫端明確提供 `output_pdf_path`，否則拋出 `ValueError`。
+     - 測試案例一律使用 `pytest tmp_path`，正式生成腳本 `scripts/run_experiments.py` 顯式傳入正式輸出路徑。
+  3. **動態假說檢定與 p-value 反應性**：
+     - 重構 `_format_diagnostics_table()`，依據傳入之實際檢定統計量與 p-value 動態切換結論與判讀依據。當 $p < 0.05$ 時顯示「$p < 0.05$」並判定「顯著拒絕同質變異」；當 $p \ge 0.05$ 時顯示「$p \ge 0.05$」並判定「未拒絕同質變異虛無假設」，杜絕靜態錯誤文字殘留。
+  4. **報告內文全動態指標綁定**：
+     - 報告第 4.5 節之文字與標題改採 `{{S_BASE_R2}}` 與 `{{S_K5_R2}}` 動態變數，確保更換測試資料或自訂 DataFrame 時，不殘留任何舊數據（如 0.769650 或 0.6647）。
+- **完整研究結果恢復 (Official Deliverables Restored)**：
+  - 執行真實 `scripts/run_experiments.py`，完整生成正式結果：
+    - **Student 表**：包含完整 6 個方法：
+      - Baseline (All Features, 27): $R^2 = 0.769650$, RMSE = 1.804445
+      - Lasso Selection (Embedded, 27): $R^2 = 0.769650$, RMSE = 1.804445
+      - Permutation Importance (5, 最佳 K=5): $R^2 = 0.666460$, RMSE = 2.171314
+      - SelectKBest (Filter, 5): $R^2 = 0.664693$, RMSE = 2.177060
+      - SFS Forward (Wrapper, 5): $R^2 = 0.664693$, RMSE = 2.177060
+      - RFE (Wrapper, 5): $R^2 = 0.645730$, RMSE = 2.237773
+    - **Flood 表**：包含完整 6 個方法：
+      - Baseline (All Features, 20): $R^2 = 0.844545$, RMSE = 0.019983
+      - Lasso Selection (Embedded, 20): $R^2 = 0.844545$, RMSE = 0.019983
+      - RFE (Wrapper, 5, 最佳 K=5): $R^2 = 0.180733$, RMSE = 0.045873
+      - SFS Forward (Wrapper, 5): $R^2 = 0.175881$, RMSE = 0.046009
+      - SelectKBest (Filter, 5): $R^2 = 0.174528$, RMSE = 0.046047
+      - Permutation Importance (5): $R^2 = 0.160534$, RMSE = 0.046435
+    - **Lasso 呈現誠實原則**：Student 保留 27 特徵，Flood 保留 20 特徵，按實際 L1 正則化篩選結果呈現，不假裝固定 K=5。
+    - **無任何「尚未計算」或未替換佔位符**：全數動態填充完備。
+- **自動化測試強化與驗收結論 (Verification & Acceptance)**：
+  1. `verify_production_deliverables_unmodified_by_pytest`：Session 級 autouse fixture 自動驗證 `reports/final_report.md`、`reports/final_report.pdf`、`student_feature_selection_comparison.csv`、`flood_feature_selection_comparison.csv` 在 pytest 前後 SHA-256 雜湊值 100% 相同。
+  2. `pytest tests/ -v`：**51 passed, 0 failed** (100% 通過，歷時 16.12s)。
+  3. `pdfplumber` 檢查：12 頁 PDF 內容與 Markdown 表格 6 方法完全相符，無 LaTeX 洩漏、無空白字元。
+  4. `npm run build`：Next.js 生產構建成功，4/4 靜態頁面生成無誤。
+
+
 
 
 

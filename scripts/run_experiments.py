@@ -153,13 +153,16 @@ def run_all_experiments():
 
     # 4. Build Final Report Markdown and PDF
     print("\n[3/3] Compiling Markdown and PDF Reports...")
+    report_md_path = os.path.join(REPORTS_DIR, "final_report.md")
     md_content = build_markdown_report(
         student_summary_df=student_fs_df,
         flood_summary_df=flood_fs_df,
         diagnostics=diagnostics,
+        output_path=report_md_path,
     )
+    print(f"Saved final Markdown report to: {report_md_path}")
     pdf_path = os.path.join(REPORTS_DIR, "final_report.pdf")
-    generate_pdf_report(md_content, pdf_path)
+    generate_pdf_report(md_content, output_pdf_path=pdf_path)
     print(f"Saved final PDF report to: {pdf_path}")
     print(f"PDF File Size: {os.path.getsize(pdf_path):,} bytes")
 
