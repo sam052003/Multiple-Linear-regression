@@ -1,0 +1,561 @@
+# Multiple Linear Regression Dashboard — 系統架構與設計文件 (Single Source of Truth)
+
+> **專案名稱**：Multiple Linear Regression Dashboard  
+> **網站副標題**：Interactive Regression Analysis with CRISP-DM and Feature Selection  
+> **GitHub Repository**：[https://github.com/sam052003/Multiple-Linear-regression.git](https://github.com/sam052003/Multiple-Linear-regression.git)  
+> **主要開發語言與框架**：Python 3.12+ / 3.14, Streamlit, Scikit-learn, Statsmodels, Plotly  
+> **狀態**：開發中 (Phase 1 啟動)  
+> **最後更新時間**：2026-10-27  
+
+---
+
+## 1. Project Overview (專案概述)
+
+### 1.1 專案背景與目標
+本專案為大學「多元線性回歸 (Multiple Linear Regression, MLR)」進階課程作業，目標是建構一個遵循 **CRISP-DM (Cross-Industry Standard Process for Data Mining)** 完整生命週期的互動式機器學習與統計分析 Web 應用程式。
+
+本系統不只是單純展示 Linear Regression 的最終結果，更提供完整的工作流程：從商業與研究問題理解、資料探索 (EDA) 與資料品質檢查、防止資料洩漏 (Data Leakage) 的前處理 Pipeline、5 種主流特徵選擇 (Feature Selection) 比較、統計回歸模型訓練、回歸五大統計假設診斷、95% 預測區間 (Prediction Interval) 推論，到單筆樣本互動式預測與綜合報告產出。
+
+### 1.2 預期成果與亮點
+1. **三個內建 Regression Problems + 自由自訂資料集 (Custom Dataset)**：
+   - **50 Startups** (預設教學入門案例，小樣本展示數值與類別特徵回歸)
+   - **Student Performance Factors** (正式主要研究對象，~6,607 筆，19 個原始特徵，符合作業 14~39 特徵要求)
+   - **Flood Probability Prediction** (第二研究大型合成資料集，20 個數值特徵，展示子抽樣與特徵選擇效能)
+   - **Custom Dataset (加分功能)**：支援安全防護的 CSV 公開網址 (URL) 載入與本機 CSV 上傳，自動型態解析、目標選擇與特徵過濾。
+2. **完整 CRISP-DM 六大階段分頁導航**：
+   - Business Understanding
+   - Data Understanding
+   - Data Preparation
+   - Modeling & Feature Selection
+   - Evaluation & Regression Diagnostics
+   - Deployment & Interactive Prediction / Export
+3. **5 種特徵選擇方法深度比較**：
+   - Filter (SelectKBest - f_regression)
+   - Wrapper (RFE - Recursive Feature Elimination)
+   - Wrapper (Sequential Feature Selector - Forward/Backward)
+   - Embedded (Lasso Feature Selection with LassoCV)
+   - Model-based (Permutation Importance on CV/Validation set)
+4. **95% 預測區間 (Prediction Interval)**：
+   - 區分「平均反應之信賴區間 (Confidence Interval for Mean)」與「個別觀測值之預測區間 (Prediction Interval for Observation)」。
+   - 基於 Statsmodels OLS 統計推論模型計算，並提示 Post-selection inference 之限制。
+5. **回歸假設完整診斷**：
+   - 線性性 (Linearity: Residuals vs Fitted)
+   - 獨立性 (Independence: Durbin-Watson)
+   - 同質變異性 (Homoscedasticity: Breusch-Pagan Test)
+   - 殘差常態性 (Normality: Q-Q Plot, Shapiro-Wilk / Jarque-Bera)
+   - 多重共線性 (Multicollinearity: Correlation Matrix & VIF)
+6. **雙輸出報告與重現工具**：
+   - 互動式圖表 (Plotly) 與 PNG 匯出。
+   - 預測結果、模型評估指標、特徵排名 CSV 匯出。
+   - 繁體中文分析報告 (`reports/final_report.md` 及 PDF) 與重現 Jupyter Notebooks。
+
+---
+
+## 2. Assignment Requirements & Traceability (作業需求追溯矩陣)
+
+| ID | 作業要求規格 | 對應實作模組 / 檔案 | 驗收方式與標準 |
+|---|---|---|---|
+| REQ-01 | 遵守 CRISP-DM 六大階段架構 | `components/` 各 UI 模組、`app.py` 導航 | 介面清晰提供六階段分頁，內容明確對應 |
+| REQ-02 | 正式研究資料集特徵數介於 14~39 之間 | `data/`, `src/data_loader.py` | Student Performance (19 特徵)、Flood (20 特徵) 驗證 |
+| REQ-03 | 連續數值型 Target | `src/data_validation.py` | 驗證 Target 為連續數值，分類或非數值給出警告 |
+| REQ-04 | 預設展示 50 Startups | `src/config.py`, `app.py` | 初次啟動網頁預設載入 50 Startups，標註教學案例 |
+| REQ-05 | 加分題 1：Problem Selector 下拉切換 | `components/sidebar.py` | 支援 3 種內建 Problems 切換，Session State 完全隔離 |
+| REQ-06 | 加分題 2：Custom Dataset (URL & Upload) | `src/data_loader.py`, `components/sidebar.py` | 支援安全網址驗證 (SSRF 防護) 與本機 CSV 上傳 |
+| REQ-07 | 嚴格防止 Data Leakage (資料洩漏) | `src/preprocessing.py`, `src/feature_selection.py` | 先切分 Train/Test，所有 Imputer/Scaler/FS 僅在 Train 上 fit |
+| REQ-08 | 5 種特徵選擇方法實作與 Baseline 比較 | `src/feature_selection.py`, `components/feature_selection_ui.py` | SelectKBest, RFE, SFS, Lasso, Permutation Importance 產出指標比較表 |
+| REQ-09 | 評估指標：MAE, MSE, RMSE, R², Adjusted R² | `src/evaluation.py` | 正確計算並分開呈現 Train, CV, Test 三者指標 |
+| REQ-10 | 95% 預測區間 (Prediction Interval) | `src/prediction_intervals.py` | 使用 Statsmodels OLS 產生 obs_ci_lower, obs_ci_upper，繪製預測區間圖 |
+| REQ-11 | 回歸五大統計假設診斷 | `src/statistical_tests.py` | 提供殘差圖、DW、BP 檢定、Q-Q 圖、VIF 計算與限制說明 |
+| REQ-12 | 互動式特徵輸入與預測 | `components/prediction_ui.py` | 使用者依輸入數值與類別特徵，即時輸出預測值與區間 |
+| REQ-13 | 匯出功能 (CSV, PNG, Report) | `components/report_ui.py`, `src/reporting.py` | 提供指標/預測 CSV 下載、圖表匯出、Markdown/PDF 報告 |
+| REQ-14 | 可重現 Jupyter Notebooks | `notebooks/student_performance_analysis.ipynb`, `notebooks/flood_prediction_analysis.ipynb` | 本機可執行且數據與 Web Dashboard 一致 |
+| REQ-15 | NotebookLM 與 GPT 輔助指引 | `docs/notebooklm_research_guide.md`, `docs/chatgpt_conversation_export_guide.md` | 保留真實研究待填區域與對話 PDF 存放目錄 |
+| REQ-16 | 自動化測試 (pytest) | `tests/` 全部單元與整合測試 | 執行 pytest 全數通過，不虛構測試結果 |
+
+---
+
+## 3. Dataset Design (資料集設計)
+
+### 3.1 Problem 1 — 50 Startups — Profit Prediction (預設 / 教學案例)
+- **來源**：`https://raw.githubusercontent.com/Avik-Jain/100-Days-Of-ML-Code/master/datasets/50_Startups.csv`
+- **資料筆數**：50 筆
+- **Target**：`Profit` (連續數值型)
+- **原始特徵 (4 個)**：
+  - `R&D Spend` (數值)
+  - `Administration` (數值)
+  - `Marketing Spend` (數值)
+  - `State` (類別：New York, California, Florida)
+- **資料特性與限制**：樣本數極少 ($N=50$)，CV 容易震盪，僅作教學與快速功能展示，**明確標示不符合正式作業 14~39 特徵要求**。
+
+### 3.2 Problem 2 — Student Performance Factors — Exam Score Prediction (正式主要研究)
+- **來源**：Kaggle (`lainguyn123/student-performance-factors`)
+- **資料規模**：約 6,607 筆
+- **Target**：`Exam_Score` (連續數值型，範圍 0~100)
+- **原始特徵 (19 個)**：
+  - 數值特徵：`Hours_Studied`, `Attendance`, `Sleep_Hours`, `Previous_Scores`, `Tutoring_Sessions`, `Physical_Activity` 等
+  - 類別特徵：`Parental_Involvement`, `Access_to_Resources`, `Motivation_Level`, `Internet_Access`, `Family_Income`, `Teacher_Quality`, `School_Type`, `Peer_Influence`, `Learning_Disabilities`, `Parental_Education_Level`, `Distance_from_Home`, `Gender` 等
+- **前處理需求**：數值中位數補值、類別眾數補值、One-Hot Encoding、標準化。
+- **分析焦點**：探討學習行為與環境因子的預測關聯，強調「關聯性不等於因果推論」。
+
+### 3.3 Problem 3 — Flood Probability Prediction (第二研究 / 大數據合成案例)
+- **來源**：Kaggle Playground Series s4e5 (`train.csv`)
+- **原始規模**：超過 1,000,000 筆，20 個特徵
+- **Target**：`FloodProbability` (連續數值，範圍 0~1)
+- **特徵 (20 個)**：全數值型 (`MonsoonIntensity`, `TopographyDrainage`, `RiverManagement`, `Deforestation`, `Urbanization`, `ClimateChange`, `DamsQuality`, `Siltation`, `AgriculturalPractices`, `Encroachments`, `IneffectiveDisasterPreparedness`, `DrainageSystems`, `CoastalVulnerability`, `Landslides`, `Watersheds`, `DeterioratingInfrastructure`, `PopulationScore`, `WetlandLoss`, `InadequatePlanning`, `PoliticalFactors`)
+- **採樣策略**：預設採用固定隨機種子 (`random_state=42`) 均勻抽樣 30,000 筆資料快取，平衡雲端記憶體與計算速度；ID 欄位強制排除；明記合成資料限制與 OLS 可能預測超出 [0, 1] 邊界之特性。
+
+### 3.4 Custom Dataset (自訂資料集規格)
+- **來源**：公開 HTTPS CSV URL 或本機 CSV 檔案上傳 (大小上限 20MB)。
+- **安全防護**：
+  - 禁止私有 IP (127.0.0.1, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, localhost)。
+  - 限制 Scheme 僅限 `https://`。
+  - 連線 Timeout 設為 10 秒，最大下載檔案限制 20MB。
+  - 偵測若為 Kaggle 網頁 HTML 則主動引導使用者下載 CSV 後上傳。
+- **自訂檢核**：Target 必須為數值型，若原始特徵數不在 14~39 範圍，以 UI Warning 明確提醒但不阻止分析。
+
+---
+
+## 4. System Architecture (系統架構設計)
+
+### 4.1 架構總覽
+```mermaid
+graph TD
+    User([使用者瀏覽器]) --> UI[Streamlit Frontend - app.py]
+    
+    subgraph UI_Components [UI Components 層]
+        Sidebar[Sidebar: Problem / Custom / Hyperparams]
+        Tab1[1. Business Understanding]
+        Tab2[2. Data Understanding - EDA]
+        Tab3[3. Data Preparation]
+        Tab4[4. Feature Selection & Modeling]
+        Tab5[5. Evaluation & Assumptions]
+        Tab6[6. Deployment & Prediction / Export]
+    end
+
+    UI --> UI_Components
+
+    subgraph Core_Services [核心業務邏輯層 src/]
+        DL[data_loader.py: 載入與快取]
+        DV[data_validation.py: 資料品質與安全檢查]
+        PP[preprocessing.py: Pipeline 構建與防洩漏]
+        FS[feature_selection.py: 5 大特徵選擇]
+        MD[modeling.py: Scikit-learn 線性回歸]
+        EV[evaluation.py: MAE, RMSE, R2, Adj R2]
+        PI[prediction_intervals.py: Statsmodels OLS 95% 區間]
+        ST[statistical_tests.py: 五大假設診斷]
+        VZ[visualization.py: Plotly 視覺化圖表]
+        RP[reporting.py: 報告生成與匯出]
+    end
+
+    UI_Components --> Core_Services
+    DL --> Cache[(Streamlit Cache: @st.cache_data)]
+    Core_Services --> Storage[(Local Data / Processed Samples)]
+```
+
+### 4.2 模組職責劃分
+- `app.py`：應用程式入口點，負責頁面配置、全域樣式、Session State 初始化與各分頁調度。
+- `src/config.py`：集中管理全域常數、資料集預設設定、路徑配置、亂數種子。
+- `src/data_loader.py`：負責 50 Startups、Student Performance、Flood Probability 及 Custom CSV 的載入與快取。
+- `src/data_validation.py`：負責 URL 安全檢查 (SSRF)、CSV 格式驗證、Target 檢查與特徵數警示。
+- `src/preprocessing.py`：封裝 Scikit-learn Pipeline (SimpleImputer, StandardScaler, OneHotEncoder)，確保嚴格在 Train Set 上 fit。
+- `src/feature_selection.py`：實作 Baseline、SelectKBest、RFE、SFS (Forward/Backward)、LassoCV Selection、Permutation Importance。
+- `src/modeling.py`：模型訓練核心，支援 Linear Regression、Ridge、Lasso，記錄係數與截距。
+- `src/evaluation.py`：指標計算 (MAE, MSE, RMSE, R², Adjusted R²)，分開回傳 Train, CV, Test 成績。
+- `src/prediction_intervals.py`：使用 Statsmodels OLS 建立對齊特徵之推論模型，計算 95% Confidence Interval 與 95% Prediction Interval。
+- `src/statistical_tests.py`：實作線性回歸 5 大假設診斷 (DW, BP test, VIF, Q-Q, Residual plots)。
+- `src/visualization.py`：統一產出 Plotly 互動式圖表 (EDA, 殘差圖, 預測比較, 特徵重要度, 區間圖)。
+- `src/reporting.py`：生成 CSV 下載內容與自動化分析報告 (Markdown & PDF)。
+
+### 4.3 Session State 與快取管理機制
+為避免切換分頁時遺失訓練結果或切換資料集時混淆舊模型：
+1. **資料集金鑰切換**：`dataset_key` 記錄當前資料集，一旦使用者切換資料集：
+   - 清除上一資料集的訓練模型 (`fitted_model`, `selected_features`, `metrics`, `ols_results`)。
+   - 重設 Target 欄位與特徵勾選清單。
+   - 重新加載並預覽新資料集。
+2. **快取策略**：
+   - 資料讀取使用 `@st.cache_data`，避免重複發送 HTTP 請求或重複讀取磁碟。
+   - 耗時的特徵選擇提供 Fast Mode，且僅在使用者點擊「開始分析 / 訓練模型」時執行，嚴禁在切換 Tab 時自動重複觸發。
+
+---
+
+## 5. UI/UX Design (介面設計)
+
+### 5.1 現代資料科學儀表板風格
+- **色彩系統**：專業科技深淺交錯（Slate 藍、Indigo 主色、Emerald 成功色、Amber 警告色、Rose 錯誤色）。
+- **字型與排版**：採用清楚的無襯線字體，卡片式 KPI (Metric Cards)，充足留白。
+- **無阻礙對比**：嚴格杜絕白底白字，確保在任何主題下文字清晰易讀。
+
+### 5.2 側邊欄 (Sidebar) 配置
+1. **Problem Selector** (下拉選單)：
+   - `50 Startups — Profit Prediction` (Default)
+   - `Student Performance Factors — Exam Score Prediction`
+   - `Flood Probability Prediction`
+2. **Dataset Source** (Radio)：
+   - `內建資料集 (Built-in Dataset)`
+   - `自訂 CSV 網址 (CSV URL)`
+   - `上傳本機 CSV (Upload CSV)`
+3. **超參數與特徵選擇設定**：
+   - Train / Test 比例滑桿 (預設 80/20)
+   - Random State 輸入 (預設 42)
+   - 特徵選擇演算法下拉選單 (Baseline, SelectKBest, RFE, SFS, Lasso, Permutation)
+   - 選取特徵數 $K$ (具備最大可用特徵限制保護)
+   - 交叉驗證折數 (預設 5-Fold)
+   - 執行按鈕：「執行分析與模型訓練 (Run Analysis)」
+4. **CRISP-DM 階段跳轉導航**。
+
+### 5.3 主介面六大 CRISP-DM 分頁
+- **Tab 1: Business Understanding**：研究背景、問題定義、預測目標、評估標準與實際應用場景。
+- **Tab 2: Data Understanding**：資料維度、缺失值概況、統計摘要、相關性熱圖 (Heatmap)、特徵與目標分佈圖。
+- **Tab 3: Data Preparation**：前處理 Pipeline 架構、資料切分展示、類別編碼設定、防資料洩漏確認。
+- **Tab 4: Feature Selection & Modeling**：5 種特徵選擇演算法排名與重要度條狀圖、最終選取特徵、回歸係數與截距。
+- **Tab 5: Evaluation & Assumptions**：
+  - 效能比較表 (Baseline vs 選取模型；Train, 5-Fold CV, Test)。
+  - Actual vs Predicted 散佈圖。
+  - 95% Prediction Interval 預測區間圖。
+  - 五大回歸假設診斷卡片與圖表。
+- **Tab 6: Interactive Prediction & Reports**：
+  - 手動特徵輸入表單、即時預測輸出、95% 預測區間。
+  - 預測結果、指標、圖表 (PNG) 與完整分析報告下載。
+
+---
+
+## 6. Machine Learning Design (機器學習架構)
+
+### 6.1 前處理與防資料洩漏 (Data Leakage Prevention)
+- **劃分順序**：`train_test_split(test_size=0.2, random_state=42)` 必須最先執行。
+- **數值特徵處理**：`SimpleImputer(strategy='median')` $\rightarrow$ `StandardScaler()`。
+- **類別特徵處理**：`SimpleImputer(strategy='most_frequent')` $\rightarrow$ `OneHotEncoder(handle_unknown='ignore', drop='first')`（`drop='first'` 避免虛擬變數陷阱造成完全多重共線性）。
+- **特徵選擇擬合**：所有特徵選擇器均**僅使用訓練集**進行 fit，絕不接觸測試集。
+
+### 6.2 五大特徵選擇方法詳細規格
+1. **Method 0: Baseline (無特徵選擇)**：
+   - 保留全部前處理後之有效特徵，作為效能對照基準。
+2. **Method 1: SelectKBest (Filter Method)**：
+   - 評分函數：`f_regression`。
+   - 特性：計算單變量線性回歸 F-score，計算速度極快，但不考慮特徵間相互關係。
+3. **Method 2: Recursive Feature Elimination - RFE (Wrapper Method)**：
+   - 基底模型：`LinearRegression()`。
+   - 特性：遞迴剔除權重最小之特徵，直到剩下 $K$ 個，提供特徵排名 (Ranking)。
+4. **Method 3: Sequential Feature Selector - SFS (Wrapper Method)**：
+   - 方向：支援 Forward（由空逐步加入最佳）與 Backward（由全逐步剃除最差）。
+   - 評分指標：負均方誤差 (`neg_mean_squared_error`)。
+   - 計算成本控制：對大型資料集 (Flood) 提供快速模式 (工作採樣集)，避免網頁長時間卡死。
+5. **Method 4: Lasso Feature Selection (Embedded Method)**：
+   - 模型：`LassoCV(cv=5, random_state=42)` 配合 `SelectFromModel`。
+   - 特性：透過 $L_1$ 正則化懲罰項自動將不重要特徵係數壓縮至 0；若收縮後特徵為 0，具備 fallback 保底機制（依據絕對係數大小取前 $K$ 個）。
+6. **Method 5: Permutation Importance (Model-based Method)**：
+   - 方法：`permutation_importance`。
+   - 特性：在訓練資料之內部驗證切分或交叉驗證上隨機打亂特徵值，評估模型表現下降程度，挑選重要度最高之前 $K$ 個特徵。
+
+---
+
+## 7. Statistical Analysis & Prediction Intervals (統計分析與預測區間)
+
+### 7.1 回歸評估指標精確公式
+- **MAE**：$\frac{1}{n} \sum_{i=1}^n |y_i - \hat{y}_i|$
+- **MSE**：$\frac{1}{n} \sum_{i=1}^n (y_i - \hat{y}_i)^2$
+- **RMSE**：$\sqrt{\text{MSE}}$
+- **$R^2$**：$1 - \frac{\sum (y_i - \hat{y}_i)^2}{\sum (y_i - \bar{y})^2}$
+- **Adjusted $R^2$**：$1 - \frac{(1 - R^2)(n - 1)}{n - p - 1}$
+  - 其中 $n$ 為預測樣本數，$p$ 為特徵數 (不含截距)。
+  - 邊界檢查：若 $n \le p + 1$，顯示 `N/A` 並附帶統計自由度不足之說明。
+
+### 7.2 95% Prediction Interval (預測區間推論)
+- **統計引擎**：`statsmodels.api.OLS`。
+- **推論對齊**：在 Scikit-learn 特徵選擇後，提取選出的特徵矩陣，加上常數項 (`sm.add_constant`)，擬合 OLS 模型。
+- **計算方法**：
+  ```python
+  predictions = ols_results.get_prediction(X_test_selected)
+  summary_frame = predictions.summary_frame(alpha=0.05)
+  # mean: 預測平均值
+  # mean_ci_lower, mean_ci_upper: 95% Confidence Interval for Mean (母體均值信賴區間)
+  # obs_ci_lower, obs_ci_upper: 95% Prediction Interval for Observation (新觀測值預測區間)
+  ```
+- **核心差異說明**：
+  - **Confidence Interval (CI)**：評估給定特徵下，目標變數「期望值 (平均值)」落入的區間。
+  - **Prediction Interval (PI)**：評估單一「新觀測值」落入的區間，除考量估計不確定性外，更納入隨機誤差項變異 $\sigma^2$，因此區間必定明顯寬於 CI。
+- **限制揭露**：OLS 假設誤差項服從獨立同分佈之常態分佈，且經資料驅動特徵選擇後之區間可能存在 Post-selection inference 偏差。
+
+### 7.3 五大線性回歸假設診斷
+1. **線性性 (Linearity)**：
+   - 繪製 Residuals vs Fitted values 散佈圖與低溫平滑趨勢線 (Lowess curve)，檢驗殘差是否對稱分佈在 0 軸兩側。
+2. **獨立性 (Independence)**：
+   - 計算 Durbin-Watson (DW) 統計量（數值接近 2 代表無自相關；接近 0 代表正自相關；接近 4 代表負自相關）。
+   - 提示：橫斷面 (Cross-sectional) 資料並無自然時間先後順序，DW 適用性需謹慎看待。
+3. **同質變異性 (Homoscedasticity)**：
+   - 繪製 Scale-Location 圖（$\sqrt{|\text{Standardized Residuals}|}$ vs Fitted）。
+   - 執行 Breusch-Pagan Lagrange Multiplier 檢定，報告 LM 統計量與 p-value。
+4. **殘差常態性 (Normality of Residuals)**：
+   - 繪製 Q-Q Plot (Quantile-Quantile Plot) 與殘差分佈直方圖 (含常態分佈擬合曲線)。
+   - 執行 Shapiro-Wilk (小樣本) 或 Jarque-Bera (大樣本) 檢定，揭露大樣本下檢定過度敏感之統計現象。
+5. **多重共線性 (Multicollinearity)**：
+   - 繪製特徵相關係數熱圖。
+   - 計算各特徵之變異數膨脹因子 (Variance Inflation Factor, VIF)；一般以 VIF > 5 或 10 判定為顯著共線性。
+
+---
+
+## 8. Custom Dataset Architecture (自訂資料集安全與處理機制)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 使用者
+    participant UI as Streamlit UI
+    participant Sec as DataValidation
+    participant Loader as DataLoader
+    participant ML as Preprocessing & Model
+
+    User->>UI: 輸入 CSV URL 或上傳檔案
+    UI->>Sec: 驗證 URL 安全性 (HTTPS, 私有 IP 阻擋, Domain 解析)
+    alt URL 不合法 / 私有網段
+        Sec-->>UI: 拋出安全阻擋警告 (SSRF Prevention)
+    else 驗證安全
+        Sec->>Loader: 安全發送 HTTP GET (帶 Timeout=10s, 20MB 限制)
+        Loader->>UI: 返回 DataFrame 預覽
+        UI->>User: 顯示欄位列表、形態檢驗
+        User->>UI: 選擇 Target 與欲排除的 ID 欄位
+        UI->>Sec: 檢查 Target 是否為數值型、確認特徵數量
+        alt 原始特徵數不在 14~39 區間
+            Sec-->>UI: 顯示「符合分析但非作業正式規格」提醒
+        end
+        UI->>ML: 進入 CRISP-DM 分析流程
+    end
+```
+
+---
+
+## 9. Project Directory Structure (專案目錄架構)
+
+```text
+HW2-Multiple Linear regression/
+├── app.py                            # Streamlit 應用程式進入點
+├── requirements.txt                  # 固定依賴套件版本清單
+├── README.md                         # 專案說明與公開展示首頁
+├── .gitignore                        # Git 忽略清單 (快取、大型資料、虛擬環境)
+├── .streamlit/
+│   └── config.toml                   # Streamlit 主題、伺服器與頁面設定
+├── MyPlan/
+│   └── design.md                     # 本設計文件 (Single Source of Truth)
+├── src/                              # 核心業務邏輯模組
+│   ├── __init__.py
+│   ├── config.py                     # 全域常數、資料路徑、預設參數
+│   ├── data_loader.py                # 資料讀取與快取處理
+│   ├── data_validation.py            # SSRF 防護、資料格式驗證、品質檢測
+│   ├── preprocessing.py              # Scikit-learn Pipeline (Imputer, Scaler, Encoder)
+│   ├── feature_selection.py          # 5 大特徵選擇演算法實作
+│   ├── modeling.py                   # 線性回歸模型訓練與權重解析
+│   ├── evaluation.py                 # MAE, MSE, RMSE, R2, Adj R2 指標計算
+│   ├── statistical_tests.py          # 5 大回歸假設統計檢定與 VIF
+│   ├── prediction_intervals.py       # Statsmodels OLS 95% 預測區間推論
+│   ├── visualization.py              # Plotly 互動式圖表生成
+│   ├── reporting.py                  # CSV 匯出與 Markdown/PDF 報告生成
+│   └── utils.py                      # 輔助函式
+├── components/                       # Streamlit UI 元件模組
+│   ├── __init__.py
+│   ├── sidebar.py                    # 側邊欄控制項與超參數設定
+│   ├── overview.py                   # CRISP-DM 總覽與商業理解分頁
+│   ├── data_understanding.py         # EDA、資料品質與統計摘要分頁
+│   ├── data_preparation.py           # 資料前處理與切分分頁
+│   ├── feature_selection_ui.py       # 特徵選擇執行與重要度比較分頁
+│   ├── modeling_ui.py                # 模型訓練與係數檢視分頁
+│   ├── evaluation_ui.py              # 模型評估、殘差診斷與預測區間分頁
+│   ├── prediction_ui.py              # 互動式單筆預測分頁
+│   └── report_ui.py                  # 報告檢視與成果下載分頁
+├── scripts/                          # 離線準備與輔助腳本
+│   ├── prepare_student_data.py       # 下載或準備 Student Performance 樣本
+│   ├── prepare_flood_data.py         # 下載或固定種子抽樣 Flood 樣本
+│   ├── run_experiments.py            # 批量執行特徵選擇實驗並輸出結果
+│   └── generate_report.py            # 命令列產出正式分析報告
+├── data/                             # 資料集目錄
+│   ├── README.md                     # 資料來源與授權說明
+│   ├── raw/                          # 原始資料存檔
+│   └── processed/                    # 抽樣與前處理後之可用資料
+├── notebooks/                        # Jupyter Notebooks 分析重現
+│   ├── student_performance_analysis.ipynb
+│   └── flood_prediction_analysis.ipynb
+├── reports/                          # 產出報告與對話紀錄
+│   ├── final_report.md               # 正式綜合分析報告 (Markdown)
+│   ├── notebooklm_summary.md         # NotebookLM 研究摘要 (真實填寫處)
+│   ├── figures/                      # 靜態成果圖表
+│   ├── results/                      # 指標與預測 CSV
+│   └── ai_conversations/             # ChatGPT 對話匯出 PDF 存放處
+├── docs/                             # 指南與說明文件
+│   ├── methodology.md                # 方法論與統計理論說明
+│   ├── deployment.md                 # Streamlit Cloud 部署完整指南
+│   ├── notebooklm_research_guide.md  # NotebookLM 研究主題與提問指南
+│   └── chatgpt_conversation_export_guide.md # 對話 PDF 匯出指南
+├── assets/
+│   └── screenshots/                  # 系統實際運作截圖
+└── tests/                            # 自動化測試案例
+    ├── __init__.py
+    ├── conftest.py                   # Pytest fixtures
+    ├── test_data_loader.py
+    ├── test_preprocessing.py
+    ├── test_feature_selection.py
+    ├── test_modeling.py
+    ├── test_evaluation.py
+    ├── test_prediction_intervals.py
+    └── test_custom_dataset.py
+```
+
+---
+
+## 10. Development Roadmap (四階段開發路徑)
+
+- [x] **Phase 1 — Foundation (基礎建設與初始系統)**
+  - [x] Project Initialization & Environment Setup
+  - [x] Create Mandatory Single Source of Truth: `MyPlan/design.md`
+  - [x] Core Data Loader & Validation (`data_loader.py`, `data_validation.py`)
+  - [x] Built-in Datasets Setup (50 Startups Default, Student Factors, Flood Sample)
+  - [x] Custom Dataset Loader (Secure CSV URL & File Upload)
+  - [x] Basic Preprocessing & Baseline LinearRegression
+  - [x] Streamlit UI Shell (`app.py`, `components/sidebar.py`, Overview & EDA)
+  - [x] Phase 1 Automated Tests (`test_data_loader.py`, `test_custom_dataset.py`, `test_modeling.py`)
+  - [x] Verification & Phase 1 Log in `design.md`
+
+- [x] **Phase 2 — Machine Learning (機器學習與特徵選擇深化)**
+  - [x] Leakage-Free Preprocessing Pipeline (Imputer, Scaler, OneHot)
+  - [x] 5 Feature Selection Algorithms (SelectKBest, RFE, SFS, Lasso, Permutation)
+  - [x] K-Fold Cross Validation Integration
+  - [x] Feature Ranking & Importance Visualization
+  - [x] Baseline vs. Feature Selection Comparison Engine
+  - [x] Feature Selection UI Integration
+  - [x] Phase 2 Automated Tests (`test_preprocessing.py`, `test_feature_selection.py`, `test_modeling.py`)
+  - [x] Verification & Phase 2 Log in `design.md`
+
+- [x] **Phase 3 — Statistics & Visualization (統計推論、假設診斷與互動預測)**
+  - [x] Statsmodels OLS Alignment & 95% Prediction Interval Engine
+  - [x] 5 Regression Assumptions Diagnostic Suite (Linearity, DW, BP, Q-Q, VIF)
+  - [x] Interactive Single-Observation Prediction Form
+  - [x] Plotly Visualizations (Actual vs Predicted, Residuals, Intervals, Heatmap)
+  - [x] Export System (CSV Metrics, Predictions, PNG Charts)
+  - [x] Phase 3 Automated Tests (`test_evaluation.py`, `test_prediction_intervals.py`)
+  - [x] Verification & Phase 3 Log in `design.md`
+
+- [x] **Phase 4 — Documentation & Delivery (文件、報告、重現 Notebooks 與交付)**
+  - [x] Comprehensive `README.md` (Live Demo, Architecture, Usage, Screenshots)
+  - [x] Jupyter Notebooks (`student_performance_analysis.ipynb`, `flood_prediction_analysis.ipynb`)
+  - [x] Final CRISP-DM Report (`reports/final_report.md` & PDF generation)
+  - [x] NotebookLM Research Guide & Summary Template (`docs/notebooklm_research_guide.md`)
+  - [x] ChatGPT Export Guide (`docs/chatgpt_conversation_export_guide.md`)
+  - [x] Streamlit Cloud Deployment Guide (`docs/deployment.md`)
+  - [x] System Screenshots & Infographics Generation
+  - [x] Final Automated Test Suite Run & Acceptance Verification
+  - [x] Final Update to `MyPlan/design.md`
+
+---
+
+## 11. Testing Plan (測試計畫與品質保證)
+
+### 11.1 測試架構
+使用 `pytest` 框架，所有測試均置於 `tests/` 目錄。
+- **Unit Tests**：驗證單一函數（如指標計算、SSRF 網址檢核、前處理轉換）。
+- **Integration Tests**：驗證完整 Pipeline（從資料載入、特徵選擇、模型訓練到預測區間產生）。
+- **Edge Cases & Security**：空資料集、文字型 Target、無限值、私有 IP URL、特徵數量少於 $K$ 等異常處理。
+
+---
+
+## 12. Risks and Limitations (風險與限制因應)
+
+| 風險項目 | 潛在影響 | 因應與緩解措施 |
+|---|---|---|
+| 大型 Flood 資料集導致伺服器 OOM | Streamlit 雲端記憶體僅約 1GB，容易崩潰 | 採用固定種子 (`random_state=42`) 預處理 30,000 筆高代表性樣本，並提供 Fast Mode |
+| SFS (循序特徵選擇) 計算時間過長 | 使用者體驗極差，造成網頁連線逾時 | 僅在使用者主動點擊按鈕時觸發；對大資料集預設開啟 Fast Mode，在子採樣上挑選特徵後以全訓練集擬合最終模型 |
+| 50 Startups 小樣本評估震盪 | CV 折數過多導致評估不穩定 | 介面上明確加註小樣本警示，限制 K 值上限與 CV 折數 |
+| 特徵選擇後的 Post-Selection 推論偏差 | 傳統 OLS 95% 區間可能低估不確定性 | 在預測區間章節與報告中清楚載明統計假設與 Post-selection inference 限制 |
+| Custom CSV SSRF 風險 | 惡意使用者輸入內網 IP 攻擊本機伺服器 | 嚴格比對解析後的 IP，阻擋 loopback、私有網段及非 HTTPS 請求 |
+
+---
+
+## 13. Deployment Plan (部署規劃)
+
+- **目標平台**：Streamlit Community Cloud
+- **連線儲存庫**：`https://github.com/sam052003/Multiple-Linear-regression.git` (main 分支)
+- **進入點**：`app.py`
+- **相依套件**：`requirements.txt` (固定相容版本，確保無 OS 原生編譯衝突)
+- **環境變數與金鑰**：本系統預設不需外部私密金鑰即可離線執行；若未來需要 Kaggle API，統一透過 Streamlit Secrets 管理，嚴禁 Commit 到 Git。
+
+---
+
+## 14. Architecture Decision Log (架構決策紀錄)
+
+### ADR-01: 為什麼選擇 Streamlit？
+- **決策**：採用 Streamlit 作為前端互動分析平台。
+- **原因**：Streamlit 能無縫整合 Python 資料科學生態系 (Scikit-learn, Pandas, Plotly, Statsmodels)，擁有豐富的原生元件與高效的快取機制 (`st.cache_data`)，且支援 Streamlit Community Cloud 一鍵部署。
+
+### ADR-02: 為什麼以 50 Startups 作為預設 Problem？
+- **決策**：初次啟動網頁預設載入 50 Startups。
+- **原因**：50 Startups 是機器學習界經典的多元線性回歸入門資料集，特徵直觀 (R&D, Admin, Marketing, State)，同時涵蓋數值與類別特徵，能在數毫秒內完成所有運算，為使用者提供最流暢的第一印象。
+
+### ADR-03: 為什麼正式主要研究選用 Student Performance Factors？
+- **決策**：以 Student Performance Factors 作為核心研究並撰寫報告。
+- **原因**：該資料集擁有 19 個原始特徵（精確符合作業 14~39 規格），約 6,607 筆真實樣本，包含豐富的社會、心理與學術變數，非常適合探討特徵選擇、多重共線性及「關聯性不等於因果」之議題。
+
+### ADR-04: 如何處理大型 Flood 資料集？
+- **決策**：採用固定種子抽樣 30,000 筆之快取策略。
+- **原因**：原始資料超過百萬筆，若在每次重新渲染或雲端部署時載入，會瞬間耗盡伺服器記憶體。採用代表性子抽樣既能保持多元線性回歸的統計顯著性，又能確保在雲端環境穩定運行。
+
+---
+
+## 15. Development Log (開發歷程紀錄)
+
+### 2026-10-27: Phase 1 完成 — 系統基石與端到端回歸管線
+- **進度**：Phase 1 基礎建設與系統骨架全數完成並通過自動化測試。
+- **完成項目**：
+  1. 建立 Repository 架構、`.gitignore`、`requirements.txt`、`.streamlit/config.toml`。
+  2. 撰寫 Single Source of Truth 設計文件 `MyPlan/design.md`。
+  3. 完成資料載入模組 `src/data_loader.py` 與資料準備腳本 `scripts/prepare_student_data.py`、`scripts/prepare_flood_data.py`。
+  4. 實作安全驗證模組 `src/data_validation.py`，包含 SSRF 防護、URL 檢核、Target 檢驗與 14~39 特徵規格判斷。
+  5. 實作防止資料洩漏之 Scikit-learn Pipeline `src/preprocessing.py`（數值中位數+標準化、類別眾數+OneHot drop='first'）。
+  6. 實作多元線性回歸基底模型 `src/modeling.py` 與評估模組 `src/evaluation.py` (MAE, MSE, RMSE, R², Adjusted R²)。
+  7. 實作 Plotly 互動式圖表模組 `src/visualization.py`。
+  8. 建置 Streamlit 介面 (`app.py`, `components/sidebar.py`, `components/overview.py`, `components/data_understanding.py`, `components/data_preparation.py`, `components/modeling_ui.py`, `components/evaluation_ui.py`)。
+  9. 完成自動化測試套件（12/12 項測試全數通過）。
+  10. 驗證本機 Streamlit 啟動成功，HTTP 狀態碼 200。
+- **測試結果**：`pytest` 12 passed in 17.85s。
+- **下一步**：進入 Phase 2 — 實作 5 大特徵選擇演算法（SelectKBest, RFE, SFS, Lasso, Permutation Importance）、多折交叉驗證整合與特徵選擇成效比較儀表板。
+
+### 2026-10-27: Phase 2 完成 — 機器學習與 5 大特徵選擇深度評估
+- **進度**：完成 5 種特徵選擇演算法實作、交叉驗證、重要度排序與模型比較引擎。
+- **完成項目**：
+  1. 實作 `src/feature_selection.py`，完整支援：
+     - Method 0: Baseline (All Features)
+     - Method 1: SelectKBest (Filter - f_regression)
+     - Method 2: RFE (Wrapper - LinearRegression)
+     - Method 3: Sequential Feature Selector (SFS Forward/Backward, 具備 Fast Mode 保護大資料集)
+     - Method 4: Lasso Feature Selection (Embedded - LassoCV，具備全零降維保底機制)
+     - Method 5: Permutation Importance (Model-based，內部切分驗證避免洩漏)
+  2. 實作統一評估引擎 `run_feature_selection_comparison`，輸出完整指標比較表 (R², Adj R², RMSE, MAE, CV R², 耗時)。
+  3. 實作特徵選擇 UI `components/feature_selection_ui.py`，包含最佳模型獎章、橫向柱狀重要度排序、特徵排名表格與分群指標比較圖。
+  4. 整合至 `app.py` 中作為第 4 CRISP-DM 核心分頁。
+  5. 撰寫單元測試 `tests/test_feature_selection.py`（6 項特徵選擇測試 100% 通過）。
+- **測試結果**：`pytest tests/test_feature_selection.py` 全部 6 項通過 (10.51s)。
+- **下一步**：進入 Phase 3 — 實作 Statsmodels OLS 統計推論模型、95% 預測區間 (Prediction Interval) 與信賴區間 (Confidence Interval)、五大線性回歸統計假設診斷 (Linearity, DW, BP, Q-Q, VIF)、互動式特徵預測與檔案匯出。
+
+### 2026-10-27: Phase 3 完成 — 統計推論、假設診斷、95% 預測區間與互動預測
+- **進度**：完成 Statsmodels OLS 整合、95% Prediction Interval 計算、五大回歸假設診斷、互動預測與匯出系統。
+- **完成項目**：
+  1. 實作 `src/prediction_intervals.py`：使用 Statsmodels OLS 計算 95% Confidence Interval for Mean 與 95% Prediction Interval for Observations，驗證 PI 寬於 CI 之統計定理，並揭露 Post-selection inference 限制。
+  2. 實作 `src/statistical_tests.py`：提供 Linearity (殘差擬合值正交)、Independence (Durbin-Watson 與橫斷面限制說明)、Homoscedasticity (Breusch-Pagan 檢定)、Normality of Residuals (Jarque-Bera 與大樣本敏感度說明)、Multicollinearity (VIF 計算表)。
+  3. 實作 `components/prediction_ui.py`：可互動調整各數值與類別特徵輸入，套用相同 ColumnTransformer，即時輸出點估計、CI、PI，並支援下載預測結果 CSV。
+  4. 實作 `src/reporting.py` 與 `components/report_ui.py`：支援模型指標 CSV、預測結果 CSV、靜態圖表、Markdown 報告與 ReportLab PDF 下載。
+  5. 撰寫單元測試 `tests/test_prediction_intervals.py`（PI 區間性質與假設檢定）。
+- **測試結果**：`pytest` 全套件 20 項測試 100% 通過 (13.42s)。
+- **下一步**：進入 Phase 4 — 撰寫完整 README.md、建立可重現 Jupyter Notebooks (`student_performance_analysis.ipynb`, `flood_prediction_analysis.ipynb`)、產出 NotebookLM 指南與提問範本、撰寫 ChatGPT 對話匯出指南、雲端部署指南、執行批次實驗腳本並產出成果圖表。
+
+### 2026-10-27: Phase 4 完成 — 完整文件、重現 Notebooks、成果圖表與交付驗收
+- **進度**：全專案開發完成，各項功能通過檢驗清單。
+- **完成項目**：
+  1. 撰寫專業正式之 `README.md`，涵蓋三大 Problems、五大特徵選擇、CRISP-DM 流程、真實實驗數字、架構連結與本機/雲端部署指南。
+  2. 撰寫可重現之 Jupyter Notebooks：`notebooks/student_performance_analysis.ipynb` 與 `notebooks/flood_prediction_analysis.ipynb`。
+  3. 實作自動化批次實驗腳本 `scripts/run_experiments.py`，產出 `reports/results/` 下之指標與預測 CSV、`reports/figures/` 下之靜態論文成果圖表，並編譯正式報告 Markdown 與 PDF。
+  4. 產出 `docs/notebooklm_research_guide.md` 與待填寫模板 `reports/notebooklm_summary.md`。
+  5. 產出 `docs/chatgpt_conversation_export_guide.md` 與對話 PDF 存放目錄 `reports/ai_conversations/`。
+  6. 產出 `docs/deployment.md` 雲端一鍵部署手冊與 `docs/methodology.md` 統計理論手冊。
+  7. 產出系統截圖與資訊圖表指南 `assets/screenshots/README.md` 與 `reports/figures/crisp_dm_process.png`。
+  8. 全套件 pytest 測試（20 項測試全數通過，100% Pass）。
+- **驗收狀態**：系統已就緒，準備交付使用者確認並執行 Git 提交。
+
+
+
+
