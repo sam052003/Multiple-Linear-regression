@@ -9,15 +9,21 @@ import {
   Hash,
   Activity,
   ArrowRight,
+  Filter,
 } from 'lucide-react';
 import { DatasetOverviewResponse } from '../../types/api';
 
 interface OverviewTabProps {
   overview: DatasetOverviewResponse | null;
   onNavigateToTab: (tab: string) => void;
+  onTargetChange?: (newTarget: string) => void;
 }
 
-export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabProps) {
+export default function OverviewTab({
+  overview,
+  onNavigateToTab,
+  onTargetChange,
+}: OverviewTabProps) {
   if (!overview) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -32,6 +38,12 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
   const is50Startups = overview.id === '50_startups';
   const isStudent = overview.id === 'student_performance';
   const isFlood = overview.id === 'flood_probability' || overview.id === 'flood_prediction';
+
+  const validTargetRows =
+    overview.n_valid_target_rows !== undefined && overview.n_valid_target_rows !== null
+      ? overview.n_valid_target_rows
+      : overview.n_rows;
+  const droppedTargetRows = overview.n_dropped_target_rows ?? (overview.n_rows - validTargetRows);
 
   return (
     <div className="space-y-6">
@@ -111,8 +123,7 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
           </div>
           <p className="mt-2 text-xl font-bold text-pink-400 truncate">{overview.target_column}</p>
           <span className="text-[11px] text-slate-500">
-            平均值：{overview.target_stats?.mean !== undefined ? overview.target_stats.mean.toFixed(2) : 'N/A'}{' '}
-            （標準差：{overview.target_stats?.std !== undefined ? overview.target_stats.std.toFixed(2) : 'N/A'}）
+            有效樣本：{validTargetRows} / {overview.n_rows} 筆
           </span>
         </div>
 
@@ -141,6 +152,77 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
             {overview.is_compliant_14_39 ? '符合 14~39 特徵規格' : '教學範例提示'}
           </p>
           <span className="text-[10px] text-slate-500 block leading-tight">{overview.compliance_message}</span>
+        </div>
+      </div>
+
+      {/* Target Column Selector & Sample Accounting Card */}
+      <div className="rounded-2xl border border-slate-800 bg-[#0f172a]/70 p-5 shadow-lg">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-pink-400" />
+              <h3 className="text-sm font-semibold text-white">
+                目標預測變數（Target Variable）指定與確認
+              </h3>
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+              設定多元線性回歸模型之預測目標（Y）。系統自動標記推薦的連續數值欄位，避免誤選文字類別。
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-400 shrink-0 font-medium">切換目標變數：</span>
+            <select
+              value={overview.target_column}
+              onChange={(e) => onTargetChange && onTargetChange(e.target.value)}
+              className="rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-sm font-semibold text-pink-300 outline-none focus:border-pink-500 cursor-pointer shadow-inner"
+            >
+              {overview.columns.map((col) => {
+                const cand = overview.candidate_targets?.find((c) => c.column === col);
+                const isNumeric = cand ? cand.is_numeric : overview.numeric_columns.includes(col);
+                const isSuitable = cand ? cand.is_suitable_for_regression : isNumeric;
+                const tag = isSuitable
+                  ? '（推薦數值回歸）'
+                  : '（類別或非數值）';
+                return (
+                  <option key={col} value={col} className="bg-slate-900 text-slate-200">
+                    {col} {tag}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        </div>
+
+        {/* Target Validation Alert if invalid */}
+        {overview.is_target_valid === false && (
+          <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-xs text-rose-300">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400 mt-0.5" />
+            <div>
+              <span className="font-semibold block mb-0.5">目標欄位規格不符警示：</span>
+              <span>{overview.target_validation_message || '目前選取的目標欄位無法轉換為連續數值，不適合進行多元線性回歸。請從上方選單切換至推薦數值欄位。'}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Sample Accounting Breakdown */}
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-slate-800/80 pt-4 text-xs">
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3">
+            <span className="text-slate-400 block text-[11px]">原始資料筆數</span>
+            <span className="text-sm font-mono font-bold text-white">{overview.n_rows.toLocaleString()} 筆</span>
+          </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3">
+            <span className="text-slate-400 block text-[11px]">有效 Target 數值筆數</span>
+            <span className="text-sm font-mono font-bold text-emerald-400">
+              {validTargetRows.toLocaleString()} 筆
+            </span>
+          </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3">
+            <span className="text-slate-400 block text-[11px]">排除無效/缺失 Target 筆數</span>
+            <span className="text-sm font-mono font-bold text-amber-400">
+              {droppedTargetRows.toLocaleString()} 筆
+            </span>
+          </div>
         </div>
       </div>
 

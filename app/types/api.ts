@@ -25,6 +25,14 @@ export interface MetricSet {
   n_features: number;
 }
 
+export interface TargetCandidate {
+  column: string;
+  is_numeric: boolean;
+  valid_ratio: number;
+  unique_values: number;
+  is_suitable_for_regression: boolean;
+}
+
 export interface DatasetOverviewResponse {
   id: string;
   title: string;
@@ -44,6 +52,12 @@ export interface DatasetOverviewResponse {
   target_correlation: Record<string, number>;
   target_stats: Record<string, number>;
   custom_data?: Array<Record<string, any>> | null;
+  n_valid_target_rows?: number | null;
+  n_dropped_target_rows?: number | null;
+  candidate_targets?: TargetCandidate[] | null;
+  recommended_target?: string | null;
+  is_target_valid?: boolean;
+  target_validation_message?: string | null;
 }
 
 export interface CoefficientItem {
@@ -65,6 +79,9 @@ export interface TrainResponse {
   test_metrics?: MetricSet | null;
   target_column?: string | null;
   n_features?: number | null;
+  n_total_samples?: number | null;
+  n_valid_target_samples?: number | null;
+  n_dropped_target_samples?: number | null;
 }
 
 export interface MethodComparisonItem {

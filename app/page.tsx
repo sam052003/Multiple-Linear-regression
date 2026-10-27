@@ -39,6 +39,13 @@ export default function DashboardPage() {
   const [evalResult, setEvalResult] = useState<EvaluationResponse | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<MethodComparisonItem | null>(null);
 
+  // In-session custom dataset retention
+  const [customDatasetInfo, setCustomDatasetInfo] = useState<{
+    id: string;
+    name: string;
+    overview: DatasetOverviewResponse;
+  } | null>(null);
+
   const [isBackendHealthy, setIsBackendHealthy] = useState<boolean>(true);
   const [isCustomModalOpen, setIsCustomModalOpen] = useState<boolean>(false);
   const [isLoadingOverview, setIsLoadingOverview] = useState<boolean>(false);
@@ -56,21 +63,35 @@ export default function DashboardPage() {
 
   // Fetch overview whenever selectedProblem changes
   useEffect(() => {
-    if (!selectedProblem || selectedProblem.startsWith('custom_')) return;
-    setIsLoadingOverview(true);
+    if (!selectedProblem) return;
+
     // Clear dependent states to prevent state leakage between problems
     setTrainResult(null);
     setFsResult(null);
     setEvalResult(null);
     setSelectedMethod(null);
 
+    // If custom dataset is selected, restore from session cache if available
+    if (selectedProblem.startsWith('custom_')) {
+      if (customDatasetInfo && customDatasetInfo.id === selectedProblem) {
+        setOverview(customDatasetInfo.overview);
+      }
+      return;
+    }
+
+    setIsLoadingOverview(true);
     fetchDatasetOverview(selectedProblem)
       .then((data) => setOverview(data))
       .catch((err) => console.error('Failed to load overview:', err))
       .finally(() => setIsLoadingOverview(false));
-  }, [selectedProblem]);
+  }, [selectedProblem, customDatasetInfo?.id]);
 
-  const handleCustomLoaded = (customOverview: DatasetOverviewResponse) => {
+  const handleCustomLoaded = (customOverview: DatasetOverviewResponse, displayName: string) => {
+    setCustomDatasetInfo({
+      id: customOverview.id,
+      name: displayName,
+      overview: customOverview,
+    });
     setOverview(customOverview);
     setSelectedProblem(customOverview.id);
     setTrainResult(null);
@@ -78,6 +99,34 @@ export default function DashboardPage() {
     setEvalResult(null);
     setSelectedMethod(null);
     setActiveTab('overview');
+  };
+
+  const handleTargetChange = async (newTarget: string) => {
+    if (!overview) return;
+    setIsLoadingOverview(true);
+    setTrainResult(null);
+    setFsResult(null);
+    setEvalResult(null);
+    setSelectedMethod(null);
+
+    try {
+      const updatedOverview = await fetchDatasetOverview(
+        overview.id,
+        newTarget,
+        overview.custom_data
+      );
+      setOverview(updatedOverview);
+      if (selectedProblem.startsWith('custom_') && customDatasetInfo) {
+        setCustomDatasetInfo({
+          ...customDatasetInfo,
+          overview: updatedOverview,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to change target column:', err);
+    } finally {
+      setIsLoadingOverview(false);
+    }
   };
 
   const tabs = [
@@ -98,6 +147,11 @@ export default function DashboardPage() {
         onSelectProblem={(id) => setSelectedProblem(id)}
         isBackendHealthy={isBackendHealthy}
         onOpenCustomModal={() => setIsCustomModalOpen(true)}
+        customDatasetInfo={
+          customDatasetInfo
+            ? { id: customDatasetInfo.id, name: customDatasetInfo.name }
+            : null
+        }
       />
 
       {/* Main Container */}
@@ -140,6 +194,7 @@ export default function DashboardPage() {
               {activeTab === 'overview' && (
                 <OverviewTab
                   overview={overview}
+                  onTargetChange={handleTargetChange}
                   onNavigateToTab={(target) => {
                     if (target === 'student_performance_trigger') {
                       setSelectedProblem('student_performance');

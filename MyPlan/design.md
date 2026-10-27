@@ -882,6 +882,58 @@ FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamli
   - `npm run build`：編譯成功，TypeScript 型別與靜態頁面生成 100% 通過。
   - `pytest tests/ -v`：39 passed, 0 failed (100% 通過)。
 
+### 2026-10-27: Custom Dataset Selector & Zero-Sample Training Error Fix
+- **進度**：徹底查明並修正自訂資料集下拉選單顯示異常與 300 筆資料回歸訓練 `n_samples=0` 錯誤；新增全套迴歸測試 (全套 pytest 增至 45 項 100% 通過)；Next.js 生產編譯 100% 通過。
+- **問題根因分析 (Root Cause Analysis)**：
+  1. *問題一：Navbar 資料集選單在自訂資料集載入後仍顯示 50 Startups*：
+     - **根因**：使用者上傳或載入自訂 CSV 後，前端將 `selectedProblem` 設為動態 ID（如 `custom_a1b2c3d4`）。然而在 `app/components/Navbar.tsx` 中，HTML `<select>` 僅靜態定義了 `50_startups`、`student_performance`、`flood_probability` 與 `custom` 四個 `<option>`，缺少對應 `value="custom_a1b2c3d4"` 的選項。根據 HTML 標準規範，當 `<select>` 的 `value` 無匹配選項時，瀏覽器會強制回退並顯示第一個 `<option>`（即 50 Startups），造成使用者以為資料集未切換的介面錯覺。
+  2. *問題二：自訂資料集 (~300 筆) 訓練時出現 `With n_samples=0 ... the resulting train set will be empty`*：
+     - **根因**：原先 `MLService.resolve_dataset()` 在未指定 `target_column` 時預設取最後一個欄位 (`df.columns[-1]`)。在許多真實 CSV 中，最後一欄往往是字串、分類標籤或文字註解（如 `Category`、`Status`、`Label`）。在 `src/preprocessing.py` 中執行 `pd.to_numeric(y, errors="coerce")` 時，文字型 Target 全部被強制轉換為 `NaN`，後續 `valid_idx = y.notna()` 將所有列過濾剔除，導致樣本數降為 0，最後傳入 Scikit-learn 的 `train_test_split(X, y)` 拋出原始例外 `ValueError: With n_samples=0 ...`。
+- **修正方式 (Solution Implemented)**：
+  1. *Task 1 — 修正自訂資料集下拉選單*：
+     - **動態 Option 與顯示名稱**：在 `Navbar.tsx` 新增動態 `<option value={customDatasetInfo.id}>自訂資料集 — {customDatasetInfo.name}</option>`，確保 `option.value` 與 `selectedProblem` 100% 一致。
+     - **語意化命名**：本機上傳使用實際檔案名稱（如 `自訂資料集 — customer_data.csv`）；URL 載入自動解析網址終端檔案名稱或標註「自訂資料集 — CSV 網址」。
+     - **彈窗互動分離**：將開窗選項設為特殊標記 `__custom_modal__`，點擊觸發 `onOpenCustomModal()` 且絕不更動 `selectedProblem`，取消或關閉彈窗時絕不誤切換資料集。
+     - **頁面工作階段快取 (Session Retention)**：在 `app/page.tsx` 維護 `customDatasetInfo`，切換至內建資料集後，自訂選項仍保留在下拉選單中，可隨時無縫切回，並維持 Overview、Training、Feature Selection、Evaluation、Prediction 全 CRISP-DM 階段狀態隔離與一致性。
+     - **安全規範遵守**：不以檔案名稱作為 API Dataset ID，不將使用者上傳資料提交至 Git。
+  2. *Task 2 — 修正自訂資料集 Target 驗證與資料一致性*：
+     - **2.1 Target Column Selector**：
+       - 在 `OverviewTab.tsx` 新增顯著的「目標預測變數（Target）指定與切換」面板，提供下拉選單列出所有欄位，並即時標記 `（推薦數值回歸）` 或 `（類別或非數值）`。
+       - 在 `CustomDatasetModal.tsx` 上傳檔案時，以 `FileReader` 自動預讀 CSV 前數 KB 標頭，供使用者在確認載入前指定 Target。
+       - 在 `MLService` 實作 `pick_default_target()`，由後往前智慧推薦合適的連續數值欄位，若最後一欄不合適絕不靜默作為 Target。
+       - 支援 `POST /api/datasets/{dataset_id}/overview`，Target 變更後即時重新計算 Overview、敘述統計、相關係數矩陣與重設訓練狀態。
+     - **2.2 Numeric Target Validation (嚴格前置驗證)**：
+       - 在 `src/preprocessing.py:prepare_dataset()` 與 `src/data_validation.py` 中，於 `train_test_split` 之前執行嚴格檢查：
+         1. 目標欄位是否存在。
+         2. 目標欄位數值有效筆數 `n_valid`（若為 0 則回傳「目前選取的目標欄位無法轉換為有效數值，{n_total} 筆資料中有 0 筆可用。請選擇適合回歸分析的數值欄位。」）。
+         3. 類別文字標籤檢查（有效比例 < 80% 提示「此欄位屬於類別型目標變數，不適合目前的多元線性回歸模型。請選擇連續型數值目標欄位。」）。
+         4. 目標變異性檢查（唯一值 <= 1 提示常數無變異性；唯一值 == 2 提示二元分類標籤）。
+         5. 樣本充足度檢查（有效樣本數必須 >= 10）。
+         6. 特徵欄位可用性檢查。
+       - 徹底杜絕 0 筆樣本進入 Scikit-learn，所有錯誤均轉換為清楚的繁體中文 HTTP 400 說明。
+     - **2.3 Data Consistency (五部樣本數精確計數)**：
+       - 在 `DataPreparationTab.tsx` 明確區分並展示五大樣本數據：
+         1. 原始資料筆數 (`overview.n_rows`)
+         2. 有效 Target 筆數 (`overview.n_valid_target_rows`)
+         3. 排除無效 Target 筆數 (`overview.n_dropped_target_rows`)
+         4. 實際訓練集筆數 (`trainResult.n_train_samples`)
+         5. 實際測試集筆數 (`trainResult.n_test_samples`)
+       - 模型訓練完成後嚴格使用後端回傳之真實訓練/測試數量；未訓練或訓練失敗時顯示預估數值與清晰狀態標籤，絕不冒充「已完成切分」。
+       - 嚴格維持資料洩漏防護（Split 優先於 Fit）。
+     - **2.4 Preprocessing Robustness**：
+       - 完整保留數值 SimpleImputer(median) + StandardScaler、類別 SimpleImputer(most_frequent) + OneHotEncoder(drop='first') 之純粹回歸建模管線。
+  3. *Task 3 — 迴歸測試新增*：
+     - 新增 `tests/test_custom_dataset_regression.py`，完整涵蓋：
+       1. 300 筆資料 Target 全為文字 -> 回傳清楚繁體中文錯誤，無 raw sklearn 例外。
+       2. 300 筆有效數值 Target 80/20 切分 -> 精確 240 筆訓練集、60 筆測試集。
+       3. 最後一欄為文字但存在合法數值 Target -> 智慧推薦與使用者手動指定成功訓練。
+       4. Target 部份缺失 (如 20 筆缺失/280 筆有效) -> 樣本數回報與切分精確 (224 訓練/56 測試)。
+       5. Target 全缺失、常數、二元分類文字標籤 -> 清楚中文錯誤。
+       6. 自訂 300 筆資料特徵選擇、五大迴歸假設評估、95% CI/PI 單筆推論全 CRISP-DM 流程端到端測試。
+- **測試結果**：
+  - 後端測試：`pytest tests/ -v` **45 passed, 0 failed** (100% Pass in 13.67s)。
+  - 前端編譯：`npm run build` 成功完成，0 錯誤、0 警告。
+
 
 
 

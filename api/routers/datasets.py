@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from api.schemas import (
     DatasetItem,
     DatasetOverviewResponse,
+    DatasetOverviewRequest,
     CustomDatasetUrlRequest,
 )
 from api.services.ml_service import MLService
@@ -39,6 +40,26 @@ def get_dataset_overview(
         return overview
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"資料集解析失敗: {e}")
+
+
+@router.post("/{dataset_id}/overview", response_model=DatasetOverviewResponse)
+def post_dataset_overview(
+    dataset_id: str,
+    req: DatasetOverviewRequest,
+):
+    """Get complete overview with optional custom_data and custom target_column."""
+    try:
+        overview = MLService.get_dataset_overview(
+            dataset_id,
+            target_column=req.target_column,
+            excluded_columns=req.excluded_columns,
+            custom_data=req.custom_data,
+        )
+        return overview
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"資料集解析失敗: {e}")
 

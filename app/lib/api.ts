@@ -23,8 +23,25 @@ export async function fetchDatasets(): Promise<DatasetItem[]> {
 
 export async function fetchDatasetOverview(
   datasetId: string,
-  targetColumn?: string
+  targetColumn?: string,
+  customData?: Array<Record<string, any>> | null
 ): Promise<DatasetOverviewResponse> {
+  if (customData && customData.length > 0) {
+    const res = await fetch(`${BASE_URL}/api/datasets/${datasetId}/overview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        target_column: targetColumn || undefined,
+        custom_data: customData,
+      }),
+    });
+    if (!res.ok) {
+      const errorBody = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(errorBody.detail || '取得資料集概況失敗');
+    }
+    return res.json();
+  }
+
   const query = targetColumn ? `?target_column=${encodeURIComponent(targetColumn)}` : '';
   const res = await fetch(`${BASE_URL}/api/datasets/${datasetId}/overview${query}`);
   if (!res.ok) {

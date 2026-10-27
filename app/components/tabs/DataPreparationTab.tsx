@@ -8,6 +8,8 @@ import {
   CheckCircle2,
   Layers,
   ArrowRight,
+  Database,
+  AlertTriangle,
 } from 'lucide-react';
 import { DatasetOverviewResponse, TrainResponse } from '../../types/api';
 import { trainBaselineModel } from '../../lib/api';
@@ -32,6 +34,15 @@ export default function DataPreparationTab({
 
   if (!overview) return null;
 
+  const validTargetRows =
+    overview.n_valid_target_rows !== undefined && overview.n_valid_target_rows !== null
+      ? overview.n_valid_target_rows
+      : overview.n_rows;
+  const droppedTargetRows = overview.n_dropped_target_rows ?? (overview.n_rows - validTargetRows);
+
+  const estimatedTrainSamples = Math.round(validTargetRows * (1 - testSize));
+  const estimatedTestSamples = validTargetRows - estimatedTrainSamples;
+
   const handleTrainBaseline = async () => {
     setIsLoading(true);
     setError(null);
@@ -51,9 +62,6 @@ export default function DataPreparationTab({
     }
   };
 
-  const trainSamples = Math.round(overview.n_rows * (1 - testSize));
-  const testSamples = overview.n_rows - trainSamples;
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -69,6 +77,54 @@ export default function DataPreparationTab({
         </p>
       </div>
 
+      {/* Sample Accounting & Verification Grid */}
+      <div className="rounded-2xl border border-slate-800 bg-[#0f172a]/70 p-5 shadow-lg">
+        <div className="flex items-center gap-2 mb-3">
+          <Database className="h-4 w-4 text-indigo-400" />
+          <h4 className="text-sm font-semibold text-white">樣本數計數與真實訓練資料一致性檢驗</h4>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
+          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+            <span className="text-slate-400 block text-[11px] mb-1">1. 原始資料筆數</span>
+            <span className="text-sm font-mono font-bold text-white">{overview.n_rows.toLocaleString()}</span>
+            <span className="text-[10px] text-slate-500 block mt-0.5">來源總筆數</span>
+          </div>
+
+          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+            <span className="text-slate-400 block text-[11px] mb-1">2. 有效 Target 筆數</span>
+            <span className="text-sm font-mono font-bold text-emerald-400">{validTargetRows.toLocaleString()}</span>
+            <span className="text-[10px] text-slate-500 block mt-0.5">可回歸數值樣本</span>
+          </div>
+
+          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+            <span className="text-slate-400 block text-[11px] mb-1">3. 排除無效 Target</span>
+            <span className="text-sm font-mono font-bold text-amber-400">{droppedTargetRows.toLocaleString()}</span>
+            <span className="text-[10px] text-slate-500 block mt-0.5">缺失或非數值列</span>
+          </div>
+
+          <div className={`rounded-xl border p-3 ${trainResult ? 'border-indigo-500/30 bg-indigo-500/10' : 'border-slate-800 bg-slate-900/40'}`}>
+            <span className="text-slate-400 block text-[11px] mb-1">4. 實際訓練集筆數</span>
+            <span className="text-sm font-mono font-bold text-indigo-300">
+              {trainResult ? `${trainResult.n_train_samples.toLocaleString()} 筆` : `約 ${estimatedTrainSamples.toLocaleString()} 筆（預估）`}
+            </span>
+            <span className="text-[10px] text-slate-500 block mt-0.5">
+              {trainResult ? '後端真實訓練集' : '未執行模型訓練'}
+            </span>
+          </div>
+
+          <div className={`rounded-xl border p-3 ${trainResult ? 'border-purple-500/30 bg-purple-500/10' : 'border-slate-800 bg-slate-900/40'}`}>
+            <span className="text-slate-400 block text-[11px] mb-1">5. 實際測試集筆數</span>
+            <span className="text-sm font-mono font-bold text-purple-300">
+              {trainResult ? `${trainResult.n_test_samples.toLocaleString()} 筆` : `約 ${estimatedTestSamples.toLocaleString()} 筆（預估）`}
+            </span>
+            <span className="text-[10px] text-slate-500 block mt-0.5">
+              {trainResult ? '後端真實測試集' : '未執行模型訓練'}
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Leakage Prevention Architecture Blueprint */}
       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-5">
         <div className="flex items-center gap-2 text-emerald-400 mb-3">
@@ -78,7 +134,7 @@ export default function DataPreparationTab({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-300">
           <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3.5">
             <span className="font-semibold text-indigo-400 block mb-1">1. 切分優先於特徵轉換</span>
-            在任何統計參數計算前，即將資料集嚴格切分為訓練集 ({((1 - testSize) * 100).toFixed(0)}%) 與測試集 ({(testSize * 100).toFixed(0)}%)。
+            在任何統計參數計算前，即將有效樣本嚴格切分為訓練集 ({((1 - testSize) * 100).toFixed(0)}%) 與測試集 ({(testSize * 100).toFixed(0)}%)。
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3.5">
             <span className="font-semibold text-purple-400 block mb-1">2. Pipeline 僅在訓練集 Fit</span>
@@ -103,7 +159,9 @@ export default function DataPreparationTab({
           <div>
             <div className="flex justify-between text-xs mb-1">
               <span className="text-slate-400">測試集切分比例（Test Ratio）：</span>
-              <span className="font-mono font-semibold text-indigo-400">{(testSize * 100).toFixed(0)}% ({testSamples} 筆樣本)</span>
+              <span className="font-mono font-semibold text-indigo-400">
+                {(testSize * 100).toFixed(0)}%（預估約 {estimatedTestSamples} 筆）
+              </span>
             </div>
             <input
               type="range"
@@ -140,15 +198,29 @@ export default function DataPreparationTab({
         </div>
 
         {error && (
-          <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
-            {error}
+          <div className="mt-4 flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400 mt-0.5" />
+            <div>
+              <span className="font-semibold block mb-0.5">模型切分與訓練失敗：</span>
+              <span>{error}</span>
+            </div>
           </div>
         )}
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800/80 pt-4">
           <div className="text-xs text-slate-400">
-            訓練集樣本：<span className="font-mono text-white">{trainSamples}</span> 筆 | 測試集樣本：{' '}
-            <span className="font-mono text-white">{testSamples}</span> 筆
+            {trainResult ? (
+              <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                <CheckCircle2 className="h-4 w-4" />
+                真實訓練集：<span className="font-mono text-white">{trainResult.n_train_samples}</span> 筆 | 真實測試集：{' '}
+                <span className="font-mono text-white">{trainResult.n_test_samples}</span> 筆（切分完成）
+              </span>
+            ) : (
+              <span>
+                預估訓練集：<span className="font-mono text-slate-300">{estimatedTrainSamples}</span> 筆 | 預估測試集：{' '}
+                <span className="font-mono text-slate-300">{estimatedTestSamples}</span> 筆（尚未切分）
+              </span>
+            )}
           </div>
 
           <button
@@ -177,7 +249,9 @@ export default function DataPreparationTab({
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2 text-indigo-300">
               <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-              <h4 className="text-sm font-semibold">基準多元線性回歸模型訓練完成</h4>
+              <h4 className="text-sm font-semibold">
+                基準多元線性回歸模型訓練完成（訓練集：{trainResult.n_train_samples} 筆 / 測試集：{trainResult.n_test_samples} 筆）
+              </h4>
             </div>
             <button
               onClick={() => onNavigateToTab('feature_selection')}

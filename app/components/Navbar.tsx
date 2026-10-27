@@ -10,6 +10,7 @@ interface NavbarProps {
   onSelectProblem: (id: string) => void;
   isBackendHealthy: boolean;
   onOpenCustomModal: () => void;
+  customDatasetInfo?: { id: string; name: string } | null;
 }
 
 export default function Navbar({
@@ -18,6 +19,7 @@ export default function Navbar({
   onSelectProblem,
   isBackendHealthy,
   onOpenCustomModal,
+  customDatasetInfo,
 }: NavbarProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-800/80 bg-[#090d16]/80 backdrop-blur-xl">
@@ -47,10 +49,11 @@ export default function Navbar({
             <select
               value={selectedProblem}
               onChange={(e) => {
-                if (e.target.value === 'custom') {
+                const val = e.target.value;
+                if (val === '__custom_modal__') {
                   onOpenCustomModal();
                 } else {
-                  onSelectProblem(e.target.value);
+                  onSelectProblem(val);
                 }
               }}
               className="bg-transparent px-3 py-1 text-sm font-medium text-slate-200 outline-none hover:text-white cursor-pointer"
@@ -67,7 +70,12 @@ export default function Navbar({
                 </option>
               </optgroup>
               <optgroup label="自訂資料集">
-                <option value="custom" className="bg-slate-900 text-indigo-300">
+                {customDatasetInfo && (
+                  <option value={customDatasetInfo.id} className="bg-slate-900 text-indigo-300 font-medium">
+                    自訂資料集 — {customDatasetInfo.name}
+                  </option>
+                )}
+                <option value="__custom_modal__" className="bg-slate-900 text-indigo-400">
                   ＋ 自訂資料集（CSV 網址／上傳）
                 </option>
               </optgroup>

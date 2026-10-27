@@ -217,25 +217,42 @@ def validate_target_column(df: pd.DataFrame, target_col: str) -> Tuple[bool, str
     Validate that the specified target column exists and is a valid continuous numeric target suitable for regression.
     """
     if target_col not in df.columns:
-        return False, f"資料集中找不到目標變數欄位: '{target_col}'", None
+        return False, f"模型訓練失敗：資料集中找不到目標變數欄位 '{target_col}'。", None
 
     series = df[target_col]
+    n_total = len(df)
+    if n_total == 0:
+        return False, "模型訓練失敗：提供之資料集筆數為 0，無法進行分析。", None
+
     # Check if numeric
     if not pd.api.types.is_numeric_dtype(series):
         # Attempt conversion
         converted = pd.to_numeric(series, errors="coerce")
-        valid_ratio = converted.notna().mean()
+        n_valid = int(converted.notna().sum())
+        if n_valid == 0:
+            return (
+                False,
+                f"模型訓練失敗：目前選取的目標欄位無法轉換為有效數值，{n_total} 筆資料中有 0 筆可用。請選擇適合回歸分析的數值欄位。",
+                None,
+            )
+        valid_ratio = n_valid / n_total
         if valid_ratio < 0.8:
-            return False, f"欄位 '{target_col}' 為非數值形態，無法作為線性回歸目標 (有效數值佔比僅 {valid_ratio*100:.1f}%)。本系統嚴禁將分類文字隨意編碼後作線性回歸。", None
+            return (
+                False,
+                f"此欄位屬於類別型目標變數，不適合目前的多元線性回歸模型。請選擇連續型數值目標欄位。（有效數值僅佔 {n_valid}/{n_total} 筆）",
+                None,
+            )
         series = converted
+    else:
+        series = pd.to_numeric(series, errors="coerce")
 
     # Check variance
     clean_series = series.dropna()
     if clean_series.nunique() <= 1:
-        return False, f"目標欄位 '{target_col}' 的所有數值均相同，無變異性，無法建立回歸模型。", None
+        return False, f"目標欄位 '{target_col}' 的所有數值均為常數（無變異性），無法建立回歸模型。", None
 
     if clean_series.nunique() <= 2:
-        return False, f"目標欄位 '{target_col}' 僅有 2 個唯一值 (可能是二元分類變數)，線性回歸應使用連續型數值變數。", None
+        return False, f"此欄位屬於類別型目標變數（僅有 2 個唯一值，疑似二元分類標籤），不適合目前的多元線性回歸模型。請選擇連續型數值目標欄位。", None
 
     return True, "目標變數驗證通過。", series
 

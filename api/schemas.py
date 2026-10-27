@@ -51,6 +51,18 @@ class DatasetOverviewResponse(BaseModel):
     target_correlation: Dict[str, float] = Field(default_factory=dict)
     target_stats: Dict[str, float] = Field(default_factory=dict)
     custom_data: Optional[List[Dict[str, Any]]] = None
+    n_valid_target_rows: Optional[int] = None
+    n_dropped_target_rows: Optional[int] = None
+    candidate_targets: Optional[List[Dict[str, Any]]] = None
+    recommended_target: Optional[str] = None
+    is_target_valid: Optional[bool] = True
+    target_validation_message: Optional[str] = None
+
+
+class DatasetOverviewRequest(BaseModel):
+    target_column: Optional[str] = None
+    excluded_columns: Optional[List[str]] = None
+    custom_data: Optional[List[Dict[str, Any]]] = None
 
 
 class CustomDatasetUrlRequest(BaseModel):
@@ -100,6 +112,9 @@ class TrainResponse(BaseModel):
     test_metrics: Optional[MetricSet] = None
     target_column: Optional[str] = None
     n_features: Optional[int] = None
+    n_total_samples: Optional[int] = None
+    n_valid_target_samples: Optional[int] = None
+    n_dropped_target_samples: Optional[int] = None
 
 
 # -------------------- Feature Selection --------------------

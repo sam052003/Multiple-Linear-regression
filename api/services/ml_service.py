@@ -93,6 +93,54 @@ class MLService:
             })
         return datasets
 
+    @staticmethod
+    def pick_default_target(df: pd.DataFrame, requested_target: Optional[str] = None) -> Tuple[str, Optional[str], List[Dict[str, Any]]]:
+        """
+        Evaluate all columns, return:
+        (chosen_target, recommended_target, candidate_targets_list)
+        """
+        candidate_targets = []
+        recommended_target = None
+
+        # Search from last column backwards for recommended continuous numeric target
+        for col in reversed(df.columns):
+            if col.lower() in ["id", "index", "unnamed: 0"]:
+                continue
+            s = df[col]
+            s_num = pd.to_numeric(s, errors="coerce")
+            valid_count = int(s_num.notna().sum())
+            valid_ratio = float(valid_count / len(df)) if len(df) > 0 else 0.0
+            n_unique = int(s_num.dropna().nunique())
+            is_num = bool(pd.api.types.is_numeric_dtype(s) or valid_ratio >= 0.8)
+            is_suitable = bool(is_num and n_unique > 2 and valid_ratio >= 0.8)
+            if is_suitable and recommended_target is None:
+                recommended_target = col
+
+        for col in df.columns:
+            s = df[col]
+            s_num = pd.to_numeric(s, errors="coerce")
+            valid_count = int(s_num.notna().sum())
+            valid_ratio = float(valid_count / len(df)) if len(df) > 0 else 0.0
+            n_unique = int(s_num.dropna().nunique())
+            is_num = bool(pd.api.types.is_numeric_dtype(s) or valid_ratio >= 0.8)
+            is_suitable = bool(is_num and n_unique > 2 and valid_ratio >= 0.8)
+            candidate_targets.append({
+                "column": col,
+                "is_numeric": is_num,
+                "valid_ratio": round(valid_ratio, 3),
+                "unique_values": n_unique,
+                "is_suitable_for_regression": is_suitable,
+            })
+
+        if requested_target and requested_target in df.columns:
+            chosen = requested_target
+        elif recommended_target:
+            chosen = recommended_target
+        else:
+            chosen = df.columns[-1]
+
+        return chosen, recommended_target, candidate_targets
+
     @classmethod
     def resolve_dataset(
         cls,
@@ -112,14 +160,14 @@ class MLService:
         if custom_data is not None and len(custom_data) > 0:
             df = pd.DataFrame(custom_data)
             cls.store_custom_dataset(dataset_id, df)
-            target = target_column or df.columns[-1]
+            target, _, _ = cls.pick_default_target(df, target_column)
             excluded = [c for c in df.columns if c.lower() in ["id", "index", "unnamed: 0"] and c != target]
             return df, target, excluded
 
         # 2. in-memory cache
         if dataset_id in cls._CUSTOM_DATASETS_CACHE:
             df = cls._CUSTOM_DATASETS_CACHE[dataset_id]
-            target = target_column or df.columns[-1]
+            target, _, _ = cls.pick_default_target(df, target_column)
             excluded = [c for c in df.columns if c.lower() in ["id", "index", "unnamed: 0"] and c != target]
             return df, target, excluded
 
@@ -129,7 +177,7 @@ class MLService:
             try:
                 df = pd.read_csv(temp_path)
                 cls._CUSTOM_DATASETS_CACHE[dataset_id] = df
-                target = target_column or df.columns[-1]
+                target, _, _ = cls.pick_default_target(df, target_column)
                 excluded = [c for c in df.columns if c.lower() in ["id", "index", "unnamed: 0"] and c != target]
                 return df, target, excluded
             except Exception:
@@ -167,11 +215,22 @@ class MLService:
         target = target_column or def_target
         excluded = cls.merge_excluded_columns(def_excluded, excluded_columns)
 
+        chosen_target, recommended_target, candidate_targets = cls.pick_default_target(df, target)
+        target = chosen_target
+
         all_cols = list(df.columns)
         avail_features = [c for c in all_cols if c != target and c not in excluded]
 
         is_compliant, feat_msg = validate_feature_count(len(avail_features))
         quality = generate_data_quality_report(df, target_col=target)
+
+        # Target sample accounting and validation status
+        n_total_rows = int(df.shape[0])
+        y_num = pd.to_numeric(df[target], errors="coerce") if target in df.columns else pd.Series(dtype=float)
+        n_valid_target = int(y_num.notna().sum())
+        n_dropped_target = n_total_rows - n_valid_target
+
+        is_target_valid, target_val_msg, _ = validate_target_column(df, target)
 
         # Descriptive stats for numeric columns
         num_stats = {}
@@ -233,6 +292,12 @@ class MLService:
             "target_correlation": target_correlation,
             "target_stats": target_stats,
             "custom_data": custom_payload,
+            "n_valid_target_rows": n_valid_target,
+            "n_dropped_target_rows": n_dropped_target,
+            "candidate_targets": candidate_targets,
+            "recommended_target": recommended_target,
+            "is_target_valid": is_target_valid,
+            "target_validation_message": target_val_msg,
         }
 
     @classmethod
@@ -290,6 +355,9 @@ class MLService:
             "training_time_ms": float(model_wrapper.training_time_sec * 1000),
             "n_train_samples": int(len(artifacts.X_train_proc)),
             "n_test_samples": int(len(artifacts.X_test_proc)),
+            "n_total_samples": int(artifacts.n_total_samples),
+            "n_valid_target_samples": int(artifacts.n_valid_target_samples),
+            "n_dropped_target_samples": int(artifacts.n_dropped_target_samples),
             "encoded_feature_names": artifacts.feature_names_out,
             "train_metrics": eval_res["train"],
             "test_metrics": eval_res["test"],
