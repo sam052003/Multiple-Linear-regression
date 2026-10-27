@@ -11,13 +11,13 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export async function fetchHealth(): Promise<{ status: string; version: string; message: string }> {
   const res = await fetch(`${BASE_URL}/api/health`);
-  if (!res.ok) throw new Error(`Health check failed with status ${res.status}`);
+  if (!res.ok) throw new Error(`分析服務健康檢查失敗（狀態碼：${res.status}）`);
   return res.json();
 }
 
 export async function fetchDatasets(): Promise<DatasetItem[]> {
   const res = await fetch(`${BASE_URL}/api/datasets`);
-  if (!res.ok) throw new Error(`Failed to fetch datasets: ${res.statusText}`);
+  if (!res.ok) throw new Error(`取得資料集列表失敗：${res.statusText}`);
   return res.json();
 }
 
@@ -29,7 +29,7 @@ export async function fetchDatasetOverview(
   const res = await fetch(`${BASE_URL}/api/datasets/${datasetId}/overview${query}`);
   if (!res.ok) {
     const errorBody = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(errorBody.detail || 'Failed to fetch dataset overview');
+    throw new Error(errorBody.detail || '取得資料集概況失敗');
   }
   return res.json();
 }
@@ -50,7 +50,7 @@ export async function submitCustomDatasetUrl(
   });
   if (!res.ok) {
     const errorBody = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(errorBody.detail || 'Custom URL validation failed');
+    throw new Error(errorBody.detail || '自訂網址驗證失敗');
   }
   return res.json();
 }
@@ -71,7 +71,7 @@ export async function uploadCustomCsv(
   });
   if (!res.ok) {
     const errorBody = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(errorBody.detail || 'CSV upload failed');
+    throw new Error(errorBody.detail || 'CSV 檔案上傳處理失敗');
   }
   return res.json();
 }
@@ -97,7 +97,7 @@ export async function trainBaselineModel(
   });
   if (!res.ok) {
     const errorBody = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(errorBody.detail || 'Failed to train baseline model');
+    throw new Error(errorBody.detail || '基準模型訓練失敗');
   }
   return res.json();
 }
@@ -122,7 +122,7 @@ export async function runFeatureSelection(
   });
   if (!res.ok) {
     const errorBody = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(errorBody.detail || 'Feature selection failed');
+    throw new Error(errorBody.detail || '特徵選擇運算失敗');
   }
   return res.json();
 }
@@ -149,7 +149,7 @@ export async function runEvaluation(
   });
   if (!res.ok) {
     const errorBody = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(errorBody.detail || 'Evaluation failed');
+    throw new Error(errorBody.detail || '模型評估運算失敗');
   }
   return res.json();
 }
@@ -174,7 +174,7 @@ export async function predictSingle(
   });
   if (!res.ok) {
     const errorBody = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(errorBody.detail || 'Prediction failed');
+    throw new Error(errorBody.detail || '單筆預測推論失敗');
   }
   return res.json();
 }

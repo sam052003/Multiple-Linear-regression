@@ -866,6 +866,23 @@ FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamli
   - `pytest tests/ -v`：**39 passed, 0 failed** (包含報告端點 404 驗證與離線報告模組測試)。
   - `npm run build`：編譯成功，TypeScript 型別檢驗與靜態頁面生成 100% 通過。
 
+### 2026-10-27: API Client Error Localization & Preview Deployment Update
+- **進度**：將 `app/lib/api.ts` 中使用者可見之所有 API 例外與 Fallback 錯誤訊息全面在地化為臺灣繁體中文；保留底層專業機器學習術語、API 欄位與資料集原始名稱；完成前後端全套測試與新版 Vercel Preview 部署驗收。
+- **調整項目**：
+  1. `fetchHealth`：健康檢查失敗訊息更新為「分析服務健康檢查失敗（狀態碼：${res.status}）」。
+  2. `fetchDatasets`：更新為「取得資料集列表失敗：${res.statusText}」。
+  3. `fetchDatasetOverview`：更新為「取得資料集概況失敗」。
+  4. `submitCustomDatasetUrl`：更新為「自訂網址驗證失敗」。
+  5. `uploadCustomCsv`：更新為「CSV 檔案上傳處理失敗」。
+  6. `trainBaselineModel`：更新為「基準模型訓練失敗」。
+  7. `runFeatureSelection`：更新為「特徵選擇運算失敗」。
+  8. `runEvaluation`：更新為「模型評估運算失敗」。
+  9. `predictSingle`：更新為「單筆預測推論失敗」。
+- **測試與驗證**：
+  - `npm run build`：編譯成功，TypeScript 型別與靜態頁面生成 100% 通過。
+  - `pytest tests/ -v`：39 passed, 0 failed (100% 通過)。
+
+
 
 
 
