@@ -767,9 +767,31 @@ FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamli
   - 前端編譯：`npm run build` 成功完成，TypeScript 型別檢驗 100% 通過，靜態頁面生成 (4/4) 無任何錯誤或警告。
 - **尚未完成的事項**：
   - 無。前後端整合修正全數通過驗收。
+### 2026-10-27: Vercel Migration — Final Pre-Deployment Roadblock Fix
+- **進度**：修復自訂資料集完整性、強化 SSRF 逐跳安全防護、解決 Vercel 循環轉址與唯讀檔案系統風險、通過 39 項自動化測試。
+- **發現的問題與修正**：
+  1. *Custom Dataset 資料截斷與一致性隱患*：
+     - **問題**：先前 `get_dataset_overview()` 僅回傳 `head(2000)`，若使用者上傳超過 2,000 筆資料，Overview 顯示完整筆數但後續 Training 僅使用 2,000 筆，造成分析資料不一致。
+     - **修正**：移除 `head(2000)` 靜默截斷，Overview 完整回傳 `df.to_dict(orient="records")`。設定 Vercel Serverless 無狀態相容安全上限 `MAX_CUSTOM_DATASET_ROWS = 5000` 與 `MAX_UPLOAD_SIZE_MB = 4.5`，超過安全限制者於 API 邊界明確以 HTTP 400 拒絕並提示原因，絕不默默截斷。
+     - **資料一致性驗證**：新增 2,500 筆資料測試案例，驗證 Overview (2,500 rows) 與 Train (2,000 train + 500 test = 2,500 rows) 及 Evaluation (2,500 rows) 數據 100% 精確一致。
+  2. *SSRF Redirect 與內容安全性漏洞*：
+     - **問題**：`requests.get()` 預設 `allow_redirects=True`，若安全網址轉址至 `127.0.0.1`、`192.168.x` 或雲端 Metadata (`169.254.169.254`)，將繞過初始 IP 檢驗；此外若下載內容為 HTML 錯誤頁面可能引發未預期解析問題。
+     - **修正**：在 `src/data_validation.py` 中禁用非受控轉址 (`allow_redirects=False`)，實作最多 3 次之逐跳 (Hop-by-Hop) 驗證；每次轉址均重新解析 Target Hostname 並嚴格檢驗 IP (禁止 Private、Loopback、Link-Local/Metadata、CGNAT)；驗證跳轉協定必須維持 HTTPS；於串流接收時檢查 Content-Type 與開頭位元組標籤（阻擋 HTML 偽裝為 CSV）。
+     - **測試驗證**：新增轉址至 `http://127.0.0.1`、`https://192.168.1.1` 及 HTML 頁面攔截測試，全數通過阻擋。
+  3. *Vercel 執行環境相容性與循環轉址消除*：
+     - **問題**：`next.config.js` 先前在生產環境設定 `/api/:path*` -> `/api/:path*`，存在自我循環重寫風險；且 Serverless Function 唯讀檔案系統下，直接寫入非 `/tmp` 目錄將引發 `[Errno 30] Read-only file system`。
+     - **修正**：`next.config.js` 改為僅在 `NODE_ENV === 'development'` 下提供本機代理，生產環境交由 `vercel.json` 統一重寫至 `api/index.py`，徹底消除循環轉址；所有動態報表與暫存檔案產出均配置 `tempfile.gettempdir()` (`/tmp`) 保底機制。
+  4. *無共享記憶體環境模擬測試*：
+     - 清空後端記憶體快取與 `/tmp` 模擬無狀態 Cold Start 實例，驗證請求 Payload 攜帶 `custom_data` 即可獨立完成回歸訓練，不依賴跨執行個體共享狀態。
+- **測試結果**：
+  - 後端測試：`pytest tests/ -v` **39 passed, 0 failed** (100% Pass in 12.97s，涵蓋 19 項 API 整合測試與 20 項 ML Core 測試)。
+  - 前端編譯：`npm run build` 成功完成，0 錯誤、0 警告。
+- **儲存方案技術評估**：
+  - *方案 A (Client-State Carrier)*：免付費 ($0)，零環境變數，支援 5,000 筆資料完整傳遞，最適合本專案。
+  - *方案 B (Vercel Blob)*：需 Pro 方案 ($20/月) 與 `BLOB_READ_WRITE_TOKEN`，已於 `docs/deployment.md` 載明架構升級路徑。
 - **部署準備狀態 (Deployment Readiness)**：
-  - **Ready for Vercel Preview Deployment**。
-  - 前端與後端整合無縫，可由 GitHub Push 觸發 Vercel Preview 部署進行雲端實際驗證。
+  - **Ready for Vercel Preview Deployment**。已解決所有已知部署阻礙。
+
 
 
 

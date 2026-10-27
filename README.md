@@ -5,7 +5,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-14.2%20App%20Router-black.svg)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
 [![Deployment](https://img.shields.io/badge/Vercel-Production%20Ready-black.svg)](https://vercel.com/)
-[![Tests](https://img.shields.io/badge/pytest-33%20passed-brightgreen.svg)](https://docs.pytest.org/)
+[![Tests](https://img.shields.io/badge/pytest-39%20passed-brightgreen.svg)](https://docs.pytest.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 > **GitHub Repository**：[https://github.com/sam052003/Multiple-Linear-regression.git](https://github.com/sam052003/Multiple-Linear-regression.git)  
@@ -163,7 +163,7 @@ pip install -r requirements.txt
 npm install
 ```
 
-### 3. 執行自動化測試 (33 項全數通過)
+### 3. 執行自動化測試 (39 項全數通過)
 ```bash
 pytest -v
 ```

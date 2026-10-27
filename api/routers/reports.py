@@ -4,6 +4,7 @@ Provides endpoints for retrieving final Markdown reports, metric CSVs, and PDF d
 """
 
 import os
+import tempfile
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, PlainTextResponse
 
@@ -29,8 +30,12 @@ def download_pdf_report():
     """Download the compiled final analysis report PDF."""
     pdf_file = os.path.join(REPORTS_DIR, "final_report.pdf")
     if not os.path.exists(pdf_file):
-        md = build_markdown_report()
-        generate_pdf_report(md, pdf_file)
+        # Fallback to writable /tmp directory to avoid Read-Only Filesystem error on Vercel Serverless
+        tmp_pdf = os.path.join(tempfile.gettempdir(), "final_report.pdf")
+        if not os.path.exists(tmp_pdf):
+            md = build_markdown_report()
+            generate_pdf_report(md, tmp_pdf)
+        pdf_file = tmp_pdf
 
     if not os.path.exists(pdf_file):
         raise HTTPException(status_code=404, detail="找不到 final_report.pdf")

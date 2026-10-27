@@ -11,7 +11,45 @@ import pandas as pd
 import numpy as np
 import requests
 
-from src.config import MAX_UPLOAD_SIZE_MB, MAX_DOWNLOAD_TIMEOUT_SECONDS, BLOCKED_IP_PREFIXES
+from src.config import (
+    MAX_UPLOAD_SIZE_MB,
+    MAX_CUSTOM_DATASET_ROWS,
+    MAX_DOWNLOAD_TIMEOUT_SECONDS,
+    BLOCKED_IP_PREFIXES,
+)
+
+
+def validate_ip_address(ip_obj: ipaddress.IPv4Address | ipaddress.IPv6Address) -> Tuple[bool, str]:
+    """
+    Check if an IP address belongs to private, loopback, link-local,
+    reserved, multicast, carrier-grade NAT, or cloud metadata ranges.
+    """
+    # If IPv4-mapped IPv6 (e.g. ::ffff:127.0.0.1), unwrap to IPv4
+    if isinstance(ip_obj, ipaddress.IPv6Address) and ip_obj.ipv4_mapped:
+        ip_obj = ip_obj.ipv4_mapped
+
+    if ip_obj.is_private:
+        return False, f"安全性阻擋: 私有網路 IP ({ip_obj})，禁止存取。"
+    if ip_obj.is_loopback:
+        return False, f"安全性阻擋: 本機環回 IP ({ip_obj})，禁止存取。"
+    if ip_obj.is_link_local:
+        return False, f"安全性阻擋: Link-Local / Metadata IP ({ip_obj})，禁止存取。"
+    if ip_obj.is_reserved or ip_obj.is_multicast or ip_obj.is_unspecified:
+        return False, f"安全性阻擋: 保留或非單播 IP ({ip_obj})，禁止存取。"
+
+    # Check Cloud metadata address 169.254.169.254 specifically
+    if str(ip_obj) == "169.254.169.254":
+        return False, "安全性阻擋: 雲端實例 Metadata IP (169.254.169.254) 被禁止存取。"
+
+    # Carrier-grade NAT 100.64.0.0/10
+    try:
+        cgnat = ipaddress.ip_network("100.64.0.0/10")
+        if ip_obj in cgnat:
+            return False, f"安全性阻擋: 電信級私有 NAT IP ({ip_obj})，禁止存取。"
+    except Exception:
+        pass
+
+    return True, "IP 驗證通過。"
 
 
 def is_safe_public_url(url: str) -> Tuple[bool, str]:
@@ -39,24 +77,31 @@ def is_safe_public_url(url: str) -> Tuple[bool, str]:
         if hostname.lower().startswith(prefix) or hostname.lower() == prefix:
             return False, f"存取受限: 禁止存取本機或內部私有網路位址 ({hostname})。"
 
+    # Check if hostname is an IP literal directly
+    try:
+        ip_obj = ipaddress.ip_address(hostname)
+        is_safe_ip, ip_msg = validate_ip_address(ip_obj)
+        if not is_safe_ip:
+            return False, ip_msg
+    except ValueError:
+        # Not a direct IP literal, proceed to DNS resolution
+        pass
+
     # Check for Kaggle web HTML page vs raw file
     if "kaggle.com" in hostname.lower() and not ("raw" in parsed.path.lower() or "download" in parsed.path.lower()):
         return False, "偵測到 Kaggle 網頁網址。Kaggle 頁面為 HTML 網頁而非直接 CSV 檔案，請下載 CSV 後使用「上傳 CSV」功能。"
 
     # DNS Resolution Check
     try:
-        resolved_ips = socket.getaddrinfo(hostname, None)
+        resolved_ips = socket.getaddrinfo(hostname, 443, proto=socket.IPPROTO_TCP)
+        if not resolved_ips:
+            return False, f"無法解析主機名稱: {hostname}"
         for entry in resolved_ips:
             ip_str = entry[4][0]
             ip_obj = ipaddress.ip_address(ip_str)
-            if (
-                ip_obj.is_private
-                or ip_obj.is_loopback
-                or ip_obj.is_link_local
-                or ip_obj.is_reserved
-                or ip_obj.is_multicast
-            ):
-                return False, f"安全性阻擋: 主機解析至私有或保留 IP ({ip_str})，已終止連線以防範 SSRF。"
+            is_safe_ip, ip_msg = validate_ip_address(ip_obj)
+            if not is_safe_ip:
+                return False, f"安全性阻擋: 主機解析至危險位址 ({ip_str})，已終止連線以防範 SSRF。"
     except socket.gaierror:
         return False, f"無法解析主機名稱: {hostname}，請確認網址是否正確。"
     except Exception as e:
@@ -65,60 +110,106 @@ def is_safe_public_url(url: str) -> Tuple[bool, str]:
     return True, "URL 安全驗證通過。"
 
 
-def fetch_csv_safely(url: str) -> Tuple[Optional[pd.DataFrame], Optional[str]]:
+def fetch_csv_safely(url: str, max_redirects: int = 3) -> Tuple[Optional[pd.DataFrame], Optional[str]]:
     """
-    Fetch a CSV file from a verified URL with timeout and byte limit.
+    Fetch a CSV file from a verified URL with timeout, byte limit, and hop-by-hop redirect verification.
     """
-    is_safe, msg = is_safe_public_url(url)
-    if not is_safe:
-        return None, msg
+    current_url = url
+    session = requests.Session()
 
-    try:
-        headers = {"User-Agent": "Multiple-Linear-Regression-Dashboard/1.0"}
-        response = requests.get(
-            url,
-            headers=headers,
-            timeout=MAX_DOWNLOAD_TIMEOUT_SECONDS,
-            stream=True,
-        )
-        if response.status_code != 200:
-            return None, f"下載失敗，HTTP 狀態碼: {response.status_code}"
+    for hop in range(max_redirects + 1):
+        is_safe, msg = is_safe_public_url(current_url)
+        if not is_safe:
+            return None, msg
 
-        # Check content length if available
-        cl = response.headers.get("Content-Length")
-        if cl and int(cl) > MAX_UPLOAD_SIZE_MB * 1024 * 1024:
-            return None, f"檔案過大 ({int(cl) / (1024*1024):.1f} MB)，超過 {MAX_UPLOAD_SIZE_MB} MB 限制。"
+        try:
+            headers = {"User-Agent": "Multiple-Linear-Regression-Dashboard/2.0"}
+            response = session.get(
+                current_url,
+                headers=headers,
+                timeout=MAX_DOWNLOAD_TIMEOUT_SECONDS,
+                stream=True,
+                allow_redirects=False,  # Strictly disable uncontrolled automatic redirects!
+            )
 
-        # Stream reading with size accumulator
-        max_bytes = MAX_UPLOAD_SIZE_MB * 1024 * 1024
-        chunks = []
-        total_bytes = 0
-        for chunk in response.iter_content(chunk_size=65536):
-            total_bytes += len(chunk)
-            if total_bytes > max_bytes:
-                return None, f"下載中斷: 檔案大小超過上限 {MAX_UPLOAD_SIZE_MB} MB。"
-            chunks.append(chunk)
+            # Check redirect status codes (301, 302, 303, 307, 308)
+            if response.status_code in (301, 302, 303, 307, 308):
+                if hop >= max_redirects:
+                    return None, f"轉址次數過多 (超過 {max_redirects} 次)，已終止連線。"
 
-        import io
-        raw_bytes = b"".join(chunks)
+                location = response.headers.get("Location")
+                if not location:
+                    return None, "轉址回應中遺漏 Location 標頭。"
 
-        # Try UTF-8, then UTF-8-sig (BOM), then latin1
-        df = None
-        for enc in ["utf-8", "utf-8-sig", "latin1"]:
-            try:
-                df = pd.read_csv(io.BytesIO(raw_bytes), encoding=enc)
-                break
-            except Exception:
+                from urllib.parse import urljoin
+                next_url = urljoin(current_url, location)
+
+                # Re-validate redirect destination URL & resolved IP hop-by-hop!
+                is_next_safe, next_err = is_safe_public_url(next_url)
+                if not is_next_safe:
+                    return None, f"轉址安全性阻擋: 跳轉目標網址受限 ({next_err})"
+
+                current_url = next_url
                 continue
 
-        if df is None or df.empty:
-            return None, "讀取失敗: 下載之檔案無法解析為有效 CSV 或內容為空。"
+            if response.status_code != 200:
+                return None, f"下載失敗，HTTP 狀態碼: {response.status_code}"
 
-        return df, None
-    except requests.exceptions.Timeout:
-        return None, f"連線逾時 (超過 {MAX_DOWNLOAD_TIMEOUT_SECONDS} 秒)，請確認網路或更換檔案來源。"
-    except Exception as e:
-        return None, f"讀取遠端 CSV 時發生未預期錯誤: {e}"
+            # 200 OK: Verify Content-Type
+            content_type = response.headers.get("Content-Type", "").lower()
+            if "text/html" in content_type or "application/xhtml+xml" in content_type:
+                return None, "下載內容為 HTML 網頁而非 CSV 檔案，請確認提供的是直接的 Raw CSV 檔案連結。"
+
+            # Check content length if available
+            cl = response.headers.get("Content-Length")
+            if cl and int(cl) > MAX_UPLOAD_SIZE_MB * 1024 * 1024:
+                return None, f"檔案過大 ({int(cl) / (1024*1024):.1f} MB)，超過 {MAX_UPLOAD_SIZE_MB} MB 限制。"
+
+            # Stream reading with size accumulator
+            max_bytes = int(MAX_UPLOAD_SIZE_MB * 1024 * 1024)
+            chunks = []
+            total_bytes = 0
+            for chunk in response.iter_content(chunk_size=65536):
+                total_bytes += len(chunk)
+                if total_bytes > max_bytes:
+                    return None, f"下載中斷: 檔案大小超過上限 {MAX_UPLOAD_SIZE_MB} MB。"
+                chunks.append(chunk)
+
+            import io
+            raw_bytes = b"".join(chunks)
+
+            # Inspect initial bytes for HTML tags (reject HTML masquerading as text/plain)
+            head_snippet = raw_bytes[:1024].lower()
+            if b"<!doctype html" in head_snippet or b"<html" in head_snippet or b"<head" in head_snippet:
+                return None, "下載內容格式為 HTML 網頁而非有效 CSV，請確認提供的是 Raw CSV 檔案網址。"
+
+            # Try UTF-8, then UTF-8-sig (BOM), then latin1
+            df = None
+            for enc in ["utf-8", "utf-8-sig", "latin1"]:
+                try:
+                    df = pd.read_csv(io.BytesIO(raw_bytes), encoding=enc)
+                    break
+                except Exception:
+                    continue
+
+            if df is None or df.empty or df.shape[1] < 2:
+                return None, "讀取失敗: 下載之檔案無法解析為有效 CSV（特徵數不足或內容為空）。"
+
+            # Check maximum rows constraint for Vercel stateless integrity
+            if df.shape[0] > MAX_CUSTOM_DATASET_ROWS:
+                return None, (
+                    f"自訂資料集筆數 ({df.shape[0]} 筆) 超出 Vercel Serverless 安全上限 ({MAX_CUSTOM_DATASET_ROWS} 筆)。"
+                    f"為確保全 CRISP-DM 流程資料 100% 一致與防止 Request Payload 溢出，請精簡資料集或使用內建研究案例。"
+                )
+
+            return df, None
+
+        except requests.exceptions.Timeout:
+            return None, f"連線逾時 (超過 {MAX_DOWNLOAD_TIMEOUT_SECONDS} 秒)，請確認網路或更換檔案來源。"
+        except Exception as e:
+            return None, f"讀取遠端 CSV 時發生未預期錯誤: {e}"
+
+    return None, f"轉址次數過多 (超過 {max_redirects} 次)。"
 
 
 def validate_target_column(df: pd.DataFrame, target_col: str) -> Tuple[bool, str, Optional[pd.Series]]:

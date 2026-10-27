@@ -145,8 +145,13 @@ class MLService:
         elif dataset_id in ["flood_probability", "flood_prediction"]:
             df = load_flood_prediction(sample_size=30000, random_state=42)
             meta = PROBLEM_METADATA[PROBLEM_FLOOD]
+        elif dataset_id.startswith("custom_"):
+            raise ValueError(
+                f"找不到自訂資料集 '{dataset_id}'。由於 Vercel 雲端採用無狀態 Serverless 架構，"
+                f"跨執行個體呼叫時請務必在 API Request 中附帶完整 'custom_data' 資料陣列。"
+            )
         else:
-            raise ValueError(f"不支援的資料集 ID 或自訂資料不存在: {dataset_id}")
+            raise ValueError(f"不支援的資料集 ID: {dataset_id}")
 
         return df, meta["default_target"], meta["excluded_cols"]
 
@@ -204,10 +209,10 @@ class MLService:
 
         preview = df.head(10).to_dict(orient="records")
 
-        # For custom datasets, provide full rows up to 2000 so frontend can retain in state
+        # For custom datasets, provide full rows so frontend can retain in state for 100% data consistency
         custom_payload = None
         if dataset_id.startswith("custom_") or custom_data is not None:
-            custom_payload = df.head(2000).to_dict(orient="records")
+            custom_payload = df.to_dict(orient="records")
 
         return {
             "id": dataset_id,

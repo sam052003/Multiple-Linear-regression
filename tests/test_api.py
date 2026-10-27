@@ -260,3 +260,205 @@ def test_download_results_metrics_and_features():
     assert "text/csv" in res_features.headers["content-type"]
     assert "method" in res_features.text.lower() or "features" in res_features.text.lower()
 
+
+def test_custom_dataset_over_2000_rows_data_consistency():
+    """
+    Ensure custom datasets with > 2,000 rows (e.g. 2,500 rows) are NEVER silently truncated to 2,000.
+    Verify that Dataset Overview, Training, and Evaluation analyze exactly the same 2,500 rows.
+    """
+    import numpy as np
+    np.random.seed(42)
+    n = 2500
+    x1 = np.random.randn(n)
+    x2 = np.random.randn(n)
+    y = 2.5 * x1 - 1.8 * x2 + np.random.randn(n) * 0.1
+
+    lines = ["feat1,feat2,target_y"]
+    for i in range(n):
+        lines.append(f"{x1[i]:.4f},{x2[i]:.4f},{y[i]:.4f}")
+    csv_text = "\n".join(lines)
+
+    # 1. Upload 2500 rows
+    files = {"file": ("dataset_2500.csv", csv_text, "text/csv")}
+    res_upload = client.post("/api/datasets/upload", files=files)
+    assert res_upload.status_code == 200
+    overview = res_upload.json()
+
+    # Verify overview counts
+    assert overview["n_rows"] == 2500
+    assert len(overview["custom_data"]) == 2500, "custom_data must retain all 2500 rows without silent truncation"
+
+    custom_id = overview["id"]
+    custom_records = overview["custom_data"]
+
+    # 2. Train model with 2500 rows (80/20 train/test split = 2000 train + 500 test)
+    res_train = client.post(
+        "/api/analysis/train",
+        json={
+            "dataset_id": custom_id,
+            "target_column": "target_y",
+            "custom_data": custom_records,
+            "test_size": 0.20,
+        },
+    )
+    assert res_train.status_code == 200
+    train_data = res_train.json()
+    assert train_data["n_train_samples"] == 2000
+    assert train_data["n_test_samples"] == 500
+    assert train_data["n_train_samples"] + train_data["n_test_samples"] == 2500
+
+    # 3. Evaluation consistency
+    res_eval = client.post(
+        "/api/analysis/evaluation",
+        json={
+            "dataset_id": custom_id,
+            "target_column": "target_y",
+            "custom_data": custom_records,
+            "test_size": 0.20,
+        },
+    )
+    assert res_eval.status_code == 200
+    eval_data = res_eval.json()
+    assert eval_data["train_metrics"]["n_samples"] + eval_data["test_metrics"]["n_samples"] == 2500
+
+
+def test_stateless_environment_simulation_without_shared_memory():
+    """
+    Simulate Vercel Serverless environment where instances do not share memory or persistent disk.
+    Ensure requests carrying custom_data succeed independently.
+    """
+    from api.services.ml_service import MLService
+    import tempfile
+    import os
+
+    # Prepare small records
+    records = [
+        {"a": 1.0, "b": 2.0, "c": 3.0},
+        {"a": 2.0, "b": 3.0, "c": 5.0},
+        {"a": 3.0, "b": 4.0, "c": 7.0},
+        {"a": 4.0, "b": 5.0, "c": 9.0},
+        {"a": 5.0, "b": 6.0, "c": 11.0},
+        {"a": 6.0, "b": 7.0, "c": 13.0},
+        {"a": 7.0, "b": 8.0, "c": 15.0},
+        {"a": 8.0, "b": 9.0, "c": 17.0},
+        {"a": 9.0, "b": 10.0, "c": 19.0},
+        {"a": 10.0, "b": 11.0, "c": 21.0},
+    ]
+
+    custom_id = "custom_stateless_sim_999"
+
+    # WIPE memory cache and disk tempfile to simulate a brand-new Serverless instance
+    MLService._CUSTOM_DATASETS_CACHE.clear()
+    tmp_path = os.path.join(tempfile.gettempdir(), f"{custom_id}.csv")
+    if os.path.exists(tmp_path):
+        os.remove(tmp_path)
+
+    # 1. Calling train WITH custom_data MUST succeed statelessly
+    res_with_data = client.post(
+        "/api/analysis/train",
+        json={
+            "dataset_id": custom_id,
+            "target_column": "c",
+            "custom_data": records,
+            "test_size": 0.2,
+        },
+    )
+    assert res_with_data.status_code == 200
+    assert "coefficients" in res_with_data.json()
+
+    # WIPE AGAIN
+    MLService._CUSTOM_DATASETS_CACHE.clear()
+    if os.path.exists(tmp_path):
+        os.remove(tmp_path)
+
+    # 2. Calling train on custom dataset WITHOUT custom_data on cold instance fails with clean 500/400
+    res_without_data = client.post(
+        "/api/analysis/train",
+        json={
+            "dataset_id": custom_id,
+            "target_column": "c",
+            "custom_data": None,
+            "test_size": 0.2,
+        },
+    )
+    assert res_without_data.status_code in (400, 404, 500)
+    assert "custom_data" in res_without_data.text or "找不到自訂資料集" in res_without_data.text
+
+
+def test_custom_dataset_exceeding_max_rows_rejected():
+    """
+    Ensure datasets exceeding the 5,000 rows ceiling are rejected with HTTP 400
+    rather than silently truncated.
+    """
+    # Create 5,005 rows
+    lines = ["x,y"]
+    for i in range(5005):
+        lines.append(f"{i},{i*2}")
+    csv_text = "\n".join(lines)
+
+    files = {"file": ("too_large.csv", csv_text, "text/csv")}
+    res = client.post("/api/datasets/upload", files=files)
+    assert res.status_code == 400
+    assert "5000" in res.text or "安全上限" in res.text
+
+
+def test_csv_url_redirect_to_private_ip_blocked():
+    """
+    Ensure HTTP redirects pointing to private / loopback IPs are blocked hop-by-hop.
+    """
+    from unittest.mock import patch
+    from src.data_validation import fetch_csv_safely
+
+    class MockRedirectResponse:
+        status_code = 302
+        headers = {"Location": "http://127.0.0.1:8080/internal.csv"}
+
+    fake_public_dns = [(2, 1, 6, "", ("93.184.216.34", 443))]
+
+    with patch("socket.getaddrinfo", return_value=fake_public_dns):
+        with patch("requests.Session.get", return_value=MockRedirectResponse()):
+            df, err = fetch_csv_safely("https://example.com/redirect")
+            assert df is None
+            assert "轉址安全性阻擋" in err or "安全性阻擋" in err
+
+    # Also test redirect to https://192.168.1.1/internal.csv
+    class MockRedirectPrivateHttps:
+        status_code = 302
+        headers = {"Location": "https://192.168.1.1/internal.csv"}
+
+    with patch("socket.getaddrinfo", return_value=fake_public_dns):
+        with patch("requests.Session.get", return_value=MockRedirectPrivateHttps()):
+            df, err = fetch_csv_safely("https://example.com/redirect")
+            assert df is None
+            assert "轉址安全性阻擋" in err or "安全性阻擋" in err
+
+
+def test_html_response_rejected():
+    """
+    Ensure HTML pages returned instead of CSV are cleanly rejected.
+    """
+    from unittest.mock import patch
+    from src.data_validation import fetch_csv_safely
+
+    class MockHtmlResponse:
+        status_code = 200
+        headers = {"Content-Type": "text/html; charset=utf-8"}
+        def iter_content(self, chunk_size=65536):
+            yield b"<!DOCTYPE html><html><head><title>404</title></head><body>Not Found</body></html>"
+
+    with patch("requests.Session.get", return_value=MockHtmlResponse()):
+        df, err = fetch_csv_safely("https://example.com/dataset.csv")
+        assert df is None
+        assert "HTML" in err
+
+
+def test_upload_exceeding_byte_limit_rejected():
+    """
+    Ensure file upload exceeding 4.5 MB is rejected with HTTP 400.
+    """
+    oversized = b"a,b\n" + b"1,2\n" * (5 * 1024 * 1024 // 4)
+    files = {"file": ("huge.csv", oversized, "text/csv")}
+    res = client.post("/api/datasets/upload", files=files)
+    assert res.status_code == 400
+    assert "超過" in res.text and "4.5" in res.text
+

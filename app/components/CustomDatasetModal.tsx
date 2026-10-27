@@ -184,7 +184,8 @@ export default function CustomDatasetModal({
               <span className="text-sm font-medium text-slate-200">
                 {isLoading ? 'Uploading & Processing...' : 'Click to select CSV file'}
               </span>
-              <span className="mt-1 text-xs text-slate-500">Max size: 4.5 MB (Vercel Serverless Function Limit)</span>
+              <span className="mt-1 text-xs text-slate-400 font-mono">Max: 4.5 MB / 5,000 rows</span>
+              <span className="mt-0.5 text-[11px] text-slate-500">Full dataset is analyzed without silent truncation</span>
               <input
                 type="file"
                 accept=".csv"

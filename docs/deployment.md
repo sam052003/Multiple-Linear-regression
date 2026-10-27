@@ -53,11 +53,34 @@ Vercel 部署引擎會自動辨識根目錄下的 `api/index.py` 與 `api/requir
 | **Request Body 大小限制** | 最大 4.5 MB | Custom CSV 上傳在前端與後端均設置 4.5 MB 上限檢查；若需要超大型資料，支援輸入公開 HTTPS 網址由後端串流解析。 |
 | **Serverless Bundle Size** | 解壓後上限 250 MB | `api/requirements.txt` 僅安裝純後端運算庫 (numpy, scikit-learn, statsmodels, fastapi)，排除 Streamlit 等重型套件。 |
 | **Cold Start 延遲** | Python Serverless 初次喚醒約 1~2 秒 | API 採輕量級按需載入，核心資料集使用 `@functools.lru_cache` 保持暖機狀態。 |
-| **SSRF 安全防護** | 防止利用 Serverless 探測內網 | `src/data_validation.py` 與 `api/routers/datasets.py` 嚴格解析 DNS IP，全面封鎖 Loopback、RFC 1918 私有網段與重定向。 |
+| **SSRF 安全防護** | 防止利用 Serverless 探測內網 | `src/data_validation.py` 與 `api/routers/datasets.py` 嚴格禁止自動轉址，實作逐跳 (Hop-by-Hop) IP 與 HTTPS 檢驗，全面封鎖 Loopback、RFC 1918 私有網段與雲端 Metadata (169.254.169.254)。 |
+| **唯讀檔案系統 (Read-Only FS)** | 伺服器僅 `/tmp` 具寫入權限 | 報告 PDF 生成與暫存檔案均寫入 `tempfile.gettempdir()`，避免 `[Errno 30] Read-only file system` 崩潰。 |
+| **無狀態資料完整性 (Data Integrity)** | 執行個體間不共享記憶體與磁碟 | 自訂資料集以完整 Payload 形式隨 Request 傳遞（上限 5,000 筆 / 4.5MB），絕不默默截斷資料，確保 Overview、Training、Feature Selection、Evaluation 數據 100% 嚴格一致。 |
 
 ---
 
-## 4. 本機開發與雙向代理 (Local Development)
+## 4. 自訂資料集資料傳遞與外部儲存架構評估 (Storage & Data Consistency)
+
+在 Vercel Serverless 無狀態架構下，各 API Request 可能被調度至完全不同的獨立 Function 執行個體。本專案評估了兩種資料傳遞架構：
+
+### 方案 A：Client-State Carrier 無狀態載體方案 (本專案採用)
+- **架構原理**：使用者上傳或下載 CSV 後，API Overview 將完整資料集（上限 5,000 筆）以 `custom_data` 屬性回傳給前端狀態保存；後續 Training、Feature Selection、Evaluation 與 Prediction 請求均在 Payload 中攜帶 `custom_data`。
+- **優勢**：
+  1. **零成本 ($0 Free Tier)**：無需訂閱第三方付費雲端儲存，完全相容 Vercel Hobby 免費方案。
+  2. **零環境變數依賴**：任何人 Fork 專案後無需配置 API Key 即可一鍵部署。
+  3. **100% 資料一致性**：絕不默默截斷為 2,000 筆，若上傳 2,500 筆則全程分析 2,500 筆；若超過 5,000 筆則在 API 邊界明確以 HTTP 400 拒絕並告知原因。
+- **限制**：受限於 Vercel 4.5 MB Request Body 限制，最大支援約 5,000 筆（20 欄位）資料。
+
+### 方案 B：Vercel Blob / AWS S3 物件儲存方案 (擴充升級建議)
+- **架構原理**：前端或後端透過 `@vercel/blob` 或 `boto3` 將 CSV 存入雲端 Object Storage，回傳唯一 Blob URL，各 Serverless Function 憑 URL 讀取。
+- **費用與相依性**：
+  1. **Vercel Blob 費用**：需升級至 Vercel Pro 方案（約 $20/月），儲存費用 $0.15/GB/月，數據讀取 $0.10/GB。
+  2. **環境變數需求**：必須在 Vercel 專案後台配置 `BLOB_READ_WRITE_TOKEN`。
+- **結論**：針對本次作業規格與示範評分，方案 A 在保障 100% 資料一致性與零靜默截斷的前提下，實現了最輕量、免設定、免付費的最佳部署實踐。
+
+---
+
+## 5. 本機開發與雙向代理 (Local Development)
 
 若要在本機同時啟動 FastAPI 後端與 Next.js 前端開發伺服器：
 

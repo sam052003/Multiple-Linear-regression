@@ -16,6 +16,7 @@ from api.schemas import (
     CustomDatasetUrlRequest,
 )
 from api.services.ml_service import MLService
+from src.config import MAX_UPLOAD_SIZE_MB, MAX_CUSTOM_DATASET_ROWS
 from src.data_validation import fetch_csv_safely, validate_feature_count, generate_data_quality_report
 
 router = APIRouter(prefix="/datasets", tags=["datasets"])
@@ -70,8 +71,14 @@ async def upload_custom_csv(
         raise HTTPException(status_code=400, detail="僅接受 .csv 格式檔案")
 
     contents = await file.read()
-    if len(contents) > 4.5 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="檔案過大，超過 4.5MB Vercel 限制")
+    max_bytes = int(MAX_UPLOAD_SIZE_MB * 1024 * 1024)
+    if len(contents) > max_bytes:
+        raise HTTPException(status_code=400, detail=f"檔案過大 ({len(contents)/(1024*1024):.1f}MB)，超過 {MAX_UPLOAD_SIZE_MB}MB Vercel 限制")
+
+    # Reject HTML masquerading as CSV
+    head_snippet = contents[:1024].lower()
+    if b"<!doctype html" in head_snippet or b"<html" in head_snippet or b"<head" in head_snippet:
+        raise HTTPException(status_code=400, detail="上傳檔案格式為 HTML 網頁而非 CSV，請確認上傳有效的 CSV 檔案")
 
     df = None
     for enc in ["utf-8", "utf-8-sig", "latin1"]:
@@ -81,8 +88,18 @@ async def upload_custom_csv(
         except Exception:
             continue
 
-    if df is None or df.empty:
-        raise HTTPException(status_code=400, detail="CSV 檔案無法解析或內容為空")
+    if df is None or df.empty or df.shape[1] < 2:
+        raise HTTPException(status_code=400, detail="CSV 檔案無法解析、特徵數不足或內容為空")
+
+    # Strictly reject datasets exceeding safe row limit rather than silent truncation
+    if df.shape[0] > MAX_CUSTOM_DATASET_ROWS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"自訂資料集筆數 ({df.shape[0]} 筆) 超出 Vercel Serverless 無狀態架構安全上限 ({MAX_CUSTOM_DATASET_ROWS} 筆)。"
+                f"為確保全 CRISP-DM 流程資料 100% 一致與防止 Request Payload 溢出，請精簡資料集或使用內建研究案例。"
+            ),
+        )
 
     custom_id = f"custom_{uuid.uuid4().hex[:8]}"
     MLService.store_custom_dataset(custom_id, df)
