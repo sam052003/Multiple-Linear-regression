@@ -934,6 +934,53 @@ FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamli
   - 後端測試：`pytest tests/ -v` **45 passed, 0 failed** (100% Pass in 13.67s)。
   - 前端編譯：`npm run build` 成功完成，0 錯誤、0 警告。
 
+### 2026-10-28: Independent CRISP-DM Research Report & Offline Experiments Preparation
+- **進度**：完成獨立 CRISP-DM 六階段研究報告初稿撰寫、離線實驗全流程重跑與驗證、Jupyter Notebooks 真實執行與圖表輸出、ReportLab 繁體中文 11 頁 PDF 排版生成、全套 45 項 pytest 測試與 Next.js 生產構建 100% 通過。
+- **第一階段：修復離線報告產生流程**：
+  - 徹底解決 `src/reporting.py` 中 `sns.set_theme(style="whitegrid")` 引發之 `NameError`，改採純粹標準 Matplotlib 樣式參數配置，並保留 try-except 容錯機制。
+  - 維持 `api/requirements.txt` 之輕量性（不加入 seaborn），確保完全不影響 Vercel Serverless Function 雲端相依部署。
+  - 升級 `generate_static_figures()`，自動產出 6 張高解析度圖表至 `reports/figures/`（包含真實值 vs 擬合值、殘差散佈圖、特徵選擇柱狀圖、殘差直方圖與常態 Q-Q 圖、95% CI vs PI 帶狀圖、Student vs Flood 訊號架構跨資料集對比圖）。
+- **第二階段：重新執行真實研究實驗與核心理論驗證**：
+  - *重現性確認*：
+    - Student Baseline (27 特徵)：測試集 $R^2 = \mathbf{0.769650}$（精確重現 $\approx 0.7696$），RMSE $= 1.804445$，MAE $= 0.452392$。
+    - Flood Baseline (20 特徵)：測試集 $R^2 = \mathbf{0.844545}$（精確重現 $\approx 0.8445$），RMSE $= 0.019983$，MAE $= 0.015939$。
+  - *Lasso 保留全部特徵之根本原因揭密*：
+    - 在 $N=5,285$ 的充足訓練樣本下，5 折交叉驗證選定之最優正規化參數極小（$\alpha = 0.002271$），所有 27 個編碼特徵之回歸係數絕對值均大於數值閥值 $10^{-5}$。
+    - 在大樣本情境下，殘差平方和梯度主導了目標函數，即使微弱預測力之特徵亦能微幅降低驗證集 MSE，故未被 L1 懲罰完全壓縮至 0。
+    - 區分「以 CV-MSE 為目標之自適應 Lasso 篩選（保留 27 特徵）」與「固定特徵預算 $K=5$ 之 Top-5 篩選」，若按係數絕對值排序，前五大特徵為 `Attendance`、`Access_to_Resources_Low`、`Parental_Involvement_Low`、`Hours_Studied` 與 `Family_Income_Low`。
+  - *特徵排名與既有報告敘述修正*：
+    - 修正先前報告聲稱「某三特徵在所有方法中均排名前三」之不實描述。
+    - 實證證實：`Attendance` 與 `Hours_Studied` 在所有演算法中穩居前二名；但第三名特徵因演算法目標函數而顯著分歧：
+      - Filter (SelectKBest) 以單變量相關性挑選 `Previous_Scores` ($r = 0.173$)；
+      - Wrapper (RFE) 與 Lasso 則因多變量條件回歸中，類別虛擬變數基準組位移幅度較大，優先保留了 `Access_to_Resources_Low` ($\beta = -2.10$) 與 `Parental_Involvement_Low` ($\beta = -2.00$)，而將 `Previous_Scores` 剔除。
+  - *回歸五大假設診斷*：
+    - 線性性：殘差與擬合值相關度為 0.0000。
+    - 殘差獨立性：Durbin-Watson $= 1.9541$（無自我相關）。
+    - 同質變異性：Breusch-Pagan LM 統計量 $22.08$，$p = 0.7335 \ge 0.05$（顯著符合同質變異）。
+    - 殘差常態性：Jarque-Bera 統計量 $p < 0.05$，但依中央極限定理 (CLT, $N=5,285$)，估計量漸近常態。
+    - 多重共線性：最大 VIF $= 2.80$ (`Distance_from_Home_Near`)，全部變數 VIF $< 3.0$（遠低於 5.0 警戒線）。
+  - *95% CI vs. 95% PI 實證差異*：
+    - 95% 母體均值信賴區間 (CI)：平均寬度僅 $0.5913$ 分，測試集涵蓋率為 $49.85\%$（證實 CI 不可用於預測單一學生）。
+    - 95% 個別觀測值預測區間 (PI)：平均寬度為 $8.2190$ 分（為 CI 的 13.9 倍），測試集涵蓋率達 $99.47\%$。
+- **第三階段：完成 Jupyter Notebooks 真實執行**：
+  - 重新架構並透過 `nbclient` 完整執行兩份 Notebook：
+    - `notebooks/student_performance_analysis.ipynb`：11 個 Code Cells 全數執行完畢（execution_count 1～11），包含 4 張高解析度 Matplotlib 內嵌圖表與詳細統計輸出。
+    - `notebooks/flood_prediction_analysis.ipynb`：5 個 Code Cells 全數執行完畢（execution_count 1～5），包含特徵縮減 R² 崩跌圖與跨資料集對比圖。
+  - 消除所有路徑硬編碼（採相對路徑 `..`），數值與正式報告 100% 精確一致。
+- **第四與第五階段：正式 CRISP-DM 研究報告撰寫與 PDF 排版**：
+  - 產出 `reports/final_report.md`（逾 2.8 萬字元），遵循 CRISP-DM 六大階段撰寫，納入嚴謹的公式推導、數值比較表、遺漏變數偏差 (Omission Bias) 與偏差-變異數權衡理論、以及選擇後推論 (Post-Selection Inference) 界限。
+  - 實作進階 ReportLab 排版引擎，成功將 Markdown 轉換為 11 頁正式出版級 PDF `reports/final_report.pdf`（檔案大小約 1.1 MB）：
+    - 支援 Windows 繁體中文微軟正黑體 (`msjh.ttc`) 與 `NumberedCanvas` 動態頁碼（「第 X 頁 / 共 Y 頁」）。
+    - 自動解析 Markdown 表格為 Indigo 主題之高對比斑馬紋 Table Flowables，包含自動欄寬配置與文字自動折行。
+    - 嵌入 6 張全彩實驗圖表與圖說。
+- **第六階段：保留真實研究紀錄待補項目**：
+  - 誠實保留 `reports/notebooklm_summary.md` 待填寫區塊與填寫指引，絕不使用假文字充數。
+  - 於 `reports/ai_conversations/` 建立操作指南 `README.md`，引導使用者匯出真實 ChatGPT / AI 對話 PDF。
+- **第七階段：驗證與合規**：
+  - `pytest tests/ -v`：45 passed, 0 failed (100% 通過，歷時 14.78s)。
+  - `npm run build`：Next.js 生產構建成功，靜態頁面生成 (4/4) 無任何錯誤。
+
+
 
 
 
