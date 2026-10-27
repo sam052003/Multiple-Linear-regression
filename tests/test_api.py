@@ -129,12 +129,30 @@ def test_predict_single():
     assert data["ci_upper_95"] <= data["pi_upper_95"]
 
 
-def test_reports_markdown():
-    res = client.get("/api/reports/markdown")
-    assert res.status_code == 200
-    text = res.text
-    assert "多元線性回歸" in text
-    assert "CRISP-DM" in text
+def test_reports_api_unmounted_on_public_app():
+    """
+    Verify report endpoints (/api/reports/markdown, /api/reports/pdf, etc.)
+    are NOT exposed on the public FastAPI app.
+    """
+    res_md = client.get("/api/reports/markdown")
+    assert res_md.status_code == 404
+
+    res_pdf = client.get("/api/reports/pdf")
+    assert res_pdf.status_code == 404
+
+    res_dl = client.get("/api/reports/download-results")
+    assert res_dl.status_code == 404
+
+
+def test_offline_report_generation_preserved():
+    """
+    Ensure offline report generation logic remains fully functional for scripts.
+    """
+    from src.reporting import build_markdown_report
+    md = build_markdown_report()
+    assert isinstance(md, str)
+    assert len(md) > 100
+    assert "多元線性回歸" in md or "CRISP-DM" in md
 
 
 def test_custom_url_ssrf_blocked():
@@ -247,18 +265,6 @@ def test_custom_upload_workflow_end_to_end():
     assert pred_data["predicted_value"] > 0
 
 
-def test_download_results_metrics_and_features():
-    # Metrics download
-    res_metrics = client.get("/api/reports/download-results?type=metrics")
-    assert res_metrics.status_code == 200
-    assert "text/csv" in res_metrics.headers["content-type"]
-    assert "exam_score" in res_metrics.text.lower() or "ci_lower" in res_metrics.text.lower()
-
-    # Features download
-    res_features = client.get("/api/reports/download-results?type=features")
-    assert res_features.status_code == 200
-    assert "text/csv" in res_features.headers["content-type"]
-    assert "method" in res_features.text.lower() or "features" in res_features.text.lower()
 
 
 def test_custom_dataset_over_2000_rows_data_consistency():

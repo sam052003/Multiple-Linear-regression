@@ -23,7 +23,7 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
       <div className="flex h-64 items-center justify-center">
         <div className="flex flex-col items-center gap-2">
           <div className="h-7 w-7 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-          <span className="text-sm text-slate-400">Loading dataset overview...</span>
+          <span className="text-sm text-slate-400">正在載入問題資料集概況...</span>
         </div>
       </div>
     );
@@ -41,28 +41,28 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
           <div>
             <div className="flex items-center gap-2">
               <span className="rounded-md border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-xs font-semibold text-indigo-400">
-                CRISP-DM Stage 1: Business Understanding
+                CRISP-DM 第一階段：問題理解（Business Understanding）
               </span>
               {isStudent && (
                 <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-400">
-                  Primary Research Dataset
+                  主要研究資料集
                 </span>
               )}
               {is50Startups && (
                 <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-400">
-                  Default Teaching Problem
+                  預設教學展示案例
                 </span>
               )}
             </div>
             <h2 className="mt-2 text-2xl font-bold tracking-tight text-white">{overview.title}</h2>
             <p className="mt-1 text-sm text-slate-400 max-w-2xl">
               {is50Startups &&
-                'Classic 50 Startups case study analyzing R&D, Administration, Marketing Spend and State location to predict corporate Profit.'}
+                '經典 50 Startups 商業案例，分析研發費用（R&D）、管理費用（Administration）、行銷支出（Marketing Spend）及營運州別，建立多元線性回歸模型預測企業獲利（Profit）。'}
               {isStudent &&
-                'Comprehensive study evaluating the predictive relationship between study habits, socio-environmental factors, and academic Exam Scores.'}
+                '深入研究學習時數、出勤率、同儕影響及社會環境因素對學業考試成績（Exam Score）之線性關聯與回歸效能。'}
               {isFlood &&
-                'High-dimensional environmental dataset predicting flood risk probability using sub-sampled verified observations.'}
-              {!is50Startups && !isStudent && !isFlood && 'Custom loaded tabular dataset with automated type inference.'}
+                '高維度環境觀測資料集，運用已驗證之抽樣資料探討各項氣候水文特徵對洪水機率（Flood Probability）之預測效果。'}
+              {!is50Startups && !isStudent && !isFlood && '使用者自訂上傳之表格資料集，系統已完成自動欄位型別推論與前處理規格檢查。'}
             </p>
           </div>
 
@@ -70,7 +70,7 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
             onClick={() => onNavigateToTab('understanding')}
             className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-semibold text-white shadow-lg shadow-indigo-600/30 transition-all hover:bg-indigo-500 shrink-0"
           >
-            <span>Proceed to Data Understanding</span>
+            <span>前往第二階段：資料理解</span>
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
@@ -80,45 +80,45 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="glass-card rounded-2xl p-5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Total Observations</span>
+            <span className="text-xs font-medium text-slate-400">總資料筆數（Rows）</span>
             <div className="rounded-lg bg-indigo-500/10 p-2 text-indigo-400">
               <Hash className="h-4 w-4" />
             </div>
           </div>
           <p className="mt-2 text-2xl font-bold text-white">{overview.n_rows.toLocaleString()}</p>
-          <span className="text-[11px] text-slate-500">Rows in dataset</span>
+          <span className="text-[11px] text-slate-500">樣本總數量</span>
         </div>
 
         <div className="glass-card rounded-2xl p-5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Features Count</span>
+            <span className="text-xs font-medium text-slate-400">原始特徵欄位數（Features）</span>
             <div className="rounded-lg bg-purple-500/10 p-2 text-purple-400">
               <Layers className="h-4 w-4" />
             </div>
           </div>
           <p className="mt-2 text-2xl font-bold text-white">{overview.available_features.length}</p>
           <span className="text-[11px] text-slate-500">
-            {overview.numeric_columns.length} Numeric, {overview.categorical_columns.length} Categorical
+            {overview.numeric_columns.length} 個數值型，{overview.categorical_columns.length} 個類別型
           </span>
         </div>
 
         <div className="glass-card rounded-2xl p-5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Target Variable</span>
+            <span className="text-xs font-medium text-slate-400">目標預測變數（Target）</span>
             <div className="rounded-lg bg-pink-500/10 p-2 text-pink-400">
               <Activity className="h-4 w-4" />
             </div>
           </div>
           <p className="mt-2 text-xl font-bold text-pink-400 truncate">{overview.target_column}</p>
           <span className="text-[11px] text-slate-500">
-            Mean: {overview.target_stats?.mean !== undefined ? overview.target_stats.mean.toFixed(2) : 'N/A'}{' '}
-            (Std: {overview.target_stats?.std !== undefined ? overview.target_stats.std.toFixed(2) : 'N/A'})
+            平均值：{overview.target_stats?.mean !== undefined ? overview.target_stats.mean.toFixed(2) : 'N/A'}{' '}
+            （標準差：{overview.target_stats?.std !== undefined ? overview.target_stats.std.toFixed(2) : 'N/A'}）
           </span>
         </div>
 
         <div className="glass-card rounded-2xl p-5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Specification Check</span>
+            <span className="text-xs font-medium text-slate-400">規格檢驗（14~39 規格）</span>
             <div
               className={`rounded-lg p-2 ${
                 overview.is_compliant_14_39
@@ -138,7 +138,7 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
               overview.is_compliant_14_39 ? 'text-emerald-400' : 'text-amber-400'
             }`}
           >
-            {overview.is_compliant_14_39 ? '14~39 Specs Met' : 'Teaching Case Note'}
+            {overview.is_compliant_14_39 ? '符合 14~39 特徵規格' : '教學範例提示'}
           </p>
           <span className="text-[10px] text-slate-500 block leading-tight">{overview.compliance_message}</span>
         </div>
@@ -167,9 +167,9 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-indigo-400" />
-            <h3 className="text-sm font-semibold text-white">First 10 Sample Records</h3>
+            <h3 className="text-sm font-semibold text-white">前 10 筆原始資料預覽（Raw Data Preview）</h3>
           </div>
-          <span className="text-xs text-slate-400">Previewing raw data</span>
+          <span className="text-xs text-slate-400">展示資料前 10 筆內容</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -184,7 +184,7 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
                         col === overview.target_column ? 'text-pink-400 bg-pink-500/10' : ''
                       }`}
                     >
-                      {col} {col === overview.target_column && '(Target)'}
+                      {col} {col === overview.target_column && '（目標變數）'}
                     </th>
                   ))}
               </tr>

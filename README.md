@@ -14,33 +14,42 @@
 
 ---
 
-## 📌 專案總覽 (Project Overview)
+## 📌 專案成果架構 (Project Deliverables)
 
-本專案為大學「多元線性回歸 (Multiple Linear Regression, MLR)」課程作業，建立了一個遵循 **CRISP-DM (Cross-Industry Standard Process for Data Mining)** 完整生命週期的現代化互動式機器學習與統計分析 Web 應用程式。
-
-專案已完成從 Streamlit 至 **Next.js 14 (App Router, TypeScript, Tailwind CSS, Plotly.js) + FastAPI (Python Machine Learning Core)** 的全端架構遷移，支援直接於 **Vercel** 進行 Monorepo 一鍵部署。
-
-本系統不只是展示回歸模型的單一預測分數，而是引導使用者從問題理解、探索性資料分析 (EDA)、嚴格防資料洩漏的前處理 Pipeline、**5 種特徵選擇演算法深度比較**、Scikit-learn 線性回歸訓練、Statsmodels OLS **95% 預測區間 (Prediction Interval)** 推論、**回歸五大統計假設診斷**，到單筆樣本互動式預測與綜合成果匯出。
+本專案成果明確分為兩大部分：
+1. **互動式網頁分析平台（Interactive Web Dashboard）**：
+   - 全站採用臺灣繁體中文（`zh-Hant-TW`）介面，保留重要英文機器學習術語。
+   - 遵循 CRISP-DM 六大步驟之互動分析流程：問題理解、資料理解、資料準備、特徵選擇與建模、模型評估與診斷、互動預測與應用。
+   - 支援 3 大內建回歸主題（50 Startups、Student Performance、Flood Probability）與自訂 CSV（HTTPS 網址／本機上傳）。
+   - 提供 5 大特徵選擇演算法平行比較、高斯-馬可夫回歸五大假設統計診斷、Statsmodels 95% 預測區間推論與預測紀錄 CSV 匯出。
+   - 部署於 Vercel 雲端無伺服器架構（Next.js 14 + FastAPI）。
+2. **獨立 CRISP-DM 研究報告（Independent Research Report）**：
+   - 正式學術報告為獨立作業繳交文件，完全與互動網站分離，不於公開網站中提供展示或下載入口，公開 API 亦不暴露報告內容。
+   - 報告資產由離線腳本與 Notebook 獨立維護，完整保留於 Repository 根目錄下之 `reports/`、`notebooks/` 與 `scripts/` 中。
 
 ![CRISP-DM Process](reports/figures/crisp_dm_process.png)
 
 ---
 
-## 🌟 核心特色與加分功能 (Core & Bonus Features)
+## 🌟 網站核心功能 (Interactive Web Dashboard Features)
 
-### 1. 三個內建回歸主題切換 (Bonus 1: Problem Selector)
-網站提供頂端下拉選單，可無縫切換三種不同規模與領域的 Regression Problems：
-- 🏢 **50 Startups — Profit Prediction**（**預設展示教學案例**）：經典入門教學案例，分析研發、行政、行銷支出與所在州別對淨利的影響。
-- 🎓 **Student Performance Factors — Exam Score Prediction**（**主要研究**）：Kaggle 真實教育數據，約 6,607 筆資料、**19 個原始輸入特徵**（精確符合 14~39 個特徵作業規格），Target 為連續數值 `Exam_Score`。
-- 🌊 **Flood Probability Prediction**（**第二研究**）：Kaggle Playground s4e5 合成資料集，20 個數值特徵，採用固定種子 (`seed=42`) 抽樣 30,000 筆快取，排除 `id` 欄位。
+### 1. 臺灣繁體中文介面 (Traditional Chinese Localization)
+- 網站所有導航、標題、說明文字、統計指標、假設檢定解說、圖表標籤與錯誤提示均採自然、專業的臺灣繁體中文。
+- 同步保留重要機器學習英文術語（如：多元線性回歸 Multiple Linear Regression、特徵選擇 Feature Selection、資料探索分析 EDA、平均絕對誤差 MAE、均方根誤差 RMSE、決定係數 R²、95% 預測區間 Prediction Interval、95% 信賴區間 Confidence Interval 等）。
 
-### 2. 自由自訂資料集支援 (Bonus 2: Custom Dataset)
+### 2. 三個內建回歸主題切換 (Problem Selector)
+網站頂端下拉選單提供三個經典與進階 Regression Problems：
+- 🏢 **50 Startups — 新創公司利潤預測**（**預設教學展示案例**）：經典入門案例，分析研發、行政、行銷支出與所在州別對企業淨利之影響。
+- 🎓 **Student Performance — 學生成績預測**（**主要研究**）：Kaggle 教育數據，約 6,607 筆資料、**19 個原始輸入特徵**（精確符合 14~39 個特徵作業規格），Target 為連續數值 `Exam_Score`。
+- 🌊 **Flood Probability — 洪水機率預測**（**比較研究**）：Kaggle 高維度環境觀測合成資料集，20 個數值特徵，採用固定種子抽樣 30,000 筆快取，嚴格排除 `id` 欄位。
+
+### 3. 自由自訂資料集支援 (Custom Dataset)
 完整支援使用者載入任意回歸資料集：
-- 🌐 **安全 CSV URL 載入**：內建 SSRF 防護機制，強制 HTTPS、DNS 解析檢查、嚴格阻擋本機與內部私有 IP、檔案下載 4.5MB Vercel 限制與逾時保護。
+- 🌐 **安全 CSV URL 載入**：內建逐跳 SSRF 防護機制，強制 HTTPS、DNS 解析檢查、嚴格阻擋本機與內部私有 IP、檔案下載 4.5MB 限制與逾時保護。
 - 💻 **本機 CSV 上傳**：支援直接上傳本機 CSV 並自動進行資料型態判斷與前處理。
 - 🎯 **自訂 Target 與特徵過濾**：使用者可自由指定 Target，自動辨識數值與類別特徵，排除 ID 欄位，並對 14~39 特徵規格給出動態合規檢驗。
 
-### 3. 五大特徵選擇演算法深度比較 (Feature Selection Suite)
+### 4. 五大特徵選擇演算法深度比較 (Feature Selection Suite)
 支援從全特徵 Baseline 到五大方法全面平行比較（固定在 Training Set 上擬合）：
 1. **Baseline**：保留全部前處理後特徵。
 2. **SelectKBest**：Filter 方法，以 `f_regression` F 檢定評分。
@@ -49,18 +58,30 @@
 5. **Lasso Feature Selection**：Embedded 方法，使用 `LassoCV` 正則化進行特徵收縮，具備非零權重保底機制。
 6. **Permutation Importance**：Model-based 方法，於內部驗證集打亂特徵值評估泛化性能衰退量。
 
-### 4. 95% 預測區間推論 (95% Prediction Interval)
+### 5. 95% 預測區間推論 (95% Prediction Interval)
 依作業要求完整呈現預測不確定性，透過 **Statsmodels OLS** 實作：
 - **95% Confidence Interval for Mean (母體均值信賴區間)**：評估給定條件下平均期望值的落點 $E(y|X)$。
 - **95% Prediction Interval for Observation (單一觀測值預測區間)**：評估新觀測值的落點，納入個體隨機誤差 $\sigma^2_\epsilon$，區間必定寬於 CI。
 - 揭露特徵選擇後之 Post-selection inference 統計限制與警示。
 
-### 5. 多元線性回歸五大假設診斷 (Regression Diagnostics)
+### 6. 多元線性回歸五大假設診斷 (Regression Diagnostics)
 - **線性性 (Linearity)**：殘差 vs. 擬合值散佈圖與零軸正交檢定。
 - **殘差獨立性 (Independence)**：Durbin-Watson 統計量（附帶橫斷面資料適用限制說明）。
 - **同質變異性 (Homoscedasticity)**：Breusch-Pagan 檢定與 p-value 解讀。
 - **殘差常態性 (Normality)**：Q-Q 圖、Jarque-Bera 檢定與大樣本敏感度說明。
 - **多重共線性 (Multicollinearity)**：相關熱圖與變異數膨脹因子 (VIF) 計算表。
+
+---
+
+## 📑 獨立研究報告資產 (Independent Research Report Assets)
+
+正式學術研究報告與分析實驗成果作為 Repository 之獨立產出（不於網頁上展示或下載）：
+- 📄 **論文與完整報告**：`reports/final_report.md`、`reports/final_report.pdf`
+- 🧠 **文獻研讀心得**：`reports/notebooklm_summary.md`
+- 💬 **AI 輔助對話紀錄**：`reports/ai_conversations/`
+- 📈 **實驗圖表產出**：`reports/figures/`
+- 📊 **數值實驗紀錄**：`reports/results/` (`student_predictions_intervals.csv`、`student_feature_selection_comparison.csv`)
+- 🧪 **離線執行腳本**：`scripts/run_experiments.py`、`notebooks/`
 
 ---
 
@@ -88,34 +109,39 @@
 
 ```text
 HW2-Multiple Linear regression/
-├── app/                              # Next.js 14 App Router (Frontend)
-│   ├── layout.tsx                    # 根佈局與深色主題設定
-│   ├── page.tsx                      # 儀表板主入口與狀態管理器
+├── app/                              # Next.js 14 App Router (Frontend, 臺灣繁體中文)
+│   ├── layout.tsx                    # 根佈局 (zh-Hant-TW) 與深色主題設定
+│   ├── page.tsx                      # 儀表板主入口與 CRISP-DM 六大階段管理器
 │   ├── globals.css                   # Tailwind 指令與玻璃擬態樣式
 │   ├── types/api.ts                  # 前後端共用 TypeScript 型別
 │   ├── lib/api.ts                    # REST API 客戶端
 │   └── components/                   # React 現代化元件
-│       ├── Navbar.tsx                # 導航列與 Problem Selector
+│       ├── Navbar.tsx                # 導航列、Problem Selector 與連線狀態
 │       ├── CustomDatasetModal.tsx    # 自訂資料集載入視窗 (SSRF 防護)
 │       ├── PlotlyChart.tsx           # Plotly.js 客戶端動態圖表
 │       └── tabs/                     # CRISP-DM 六大階段分頁
-│           ├── OverviewTab.tsx       # Stage 1: 商業理解與摘要
-│           ├── DataUnderstandingTab.tsx # Stage 2: EDA 與相關係數圖
-│           ├── DataPreparationTab.tsx   # Stage 3: 前處理管線與基底模型
-│           ├── FeatureSelectionTab.tsx  # Stage 4: 5 大特徵選擇與比較
-│           ├── EvaluationTab.tsx     # Stage 5: 95% PI 與假設診斷
-│           ├── PredictionTab.tsx     # Stage 6: 互動預測與單筆推論
-│           └── ReportTab.tsx         # Stage 6: 報告預覽與 PDF/CSV 下載
+│           ├── OverviewTab.tsx       # Stage 1: 問題理解與資料集摘要
+│           ├── DataUnderstandingTab.tsx # Stage 2: 資料理解 EDA 與相關分析
+│           ├── DataPreparationTab.tsx   # Stage 3: 資料準備管線與基準模型
+│           ├── FeatureSelectionTab.tsx  # Stage 4: 特徵選擇與建模評測
+│           ├── EvaluationTab.tsx     # Stage 5: 模型評估與統計假設診斷
+│           └── PredictionTab.tsx     # Stage 6: 互動預測與單筆推論
 ├── api/                              # FastAPI Backend (Vercel Serverless)
-│   ├── index.py                      # ASGI 應用進入點
+│   ├── index.py                      # ASGI 應用進入點 (報告路由已取消掛載)
 │   ├── schemas.py                    # Pydantic v2 Request/Response Contracts
 │   ├── requirements.txt              # Vercel Serverless 專屬相依套件
 │   ├── services/ml_service.py        # 無狀態機器學習服務層
 │   └── routers/                      # REST API 路由
 │       ├── datasets.py               # 資料集概覽與自訂資料解析
 │       ├── analysis.py               # 模型訓練、特徵選擇與診斷
-│       ├── predict.py                # 單筆樣本 95% PI 推論
-│       └── reports.py                # 報告文字與 PDF 檔案串流
+│       └── predict.py                # 單筆樣本 95% PI 推論
+├── reports/                          # [獨立成果] 正式研究報告與實驗數據 (不公開於網站)
+│   ├── final_report.md               # 論文形式正式報告 Markdown
+│   ├── final_report.pdf              # 論文形式正式報告 PDF
+│   ├── notebooklm_summary.md         # NotebookLM 文獻研讀心得
+│   ├── figures/                      # 靜態論文圖表
+│   ├── results/                      # 實驗預測與特徵比較 CSV
+│   └── ai_conversations/             # AI 輔助開發真實紀錄
 ├── src/                              # Python Machine Learning 核心演算法 (100% 沿用)
 │   ├── config.py                     # 全域常數與資料集詮釋資料
 │   ├── data_loader.py                # 資料讀取與記憶體快取 (@lru_cache)
@@ -127,12 +153,12 @@ HW2-Multiple Linear regression/
 │   ├── statistical_tests.py          # 5 大回歸假設統計檢定與 VIF
 │   ├── prediction_intervals.py       # Statsmodels OLS 95% PI / CI 推論
 │   ├── visualization.py              # 靜態論文圖表生成模組
-│   └── reporting.py                  # 報告與數據 CSV/PDF 產出
+│   └── reporting.py                  # [離線用] 報告與數據 CSV/PDF 產出
 ├── vercel.json                       # Vercel Monorepo 路由設定
 ├── package.json                      # Next.js 前端相依套件與腳本
 ├── requirements.txt                  # Python 完整相依套件清單
-├── tests/                            # 自動化測試套件 (pytest, 30 項全通)
-│   ├── test_api.py                   # FastAPI REST API 整合測試 (10 項)
+├── tests/                            # 自動化測試套件 (pytest, 39 項全通)
+│   ├── test_api.py                   # FastAPI REST API 整合測試 (含報告端點 404 檢驗)
 │   ├── test_data_loader.py           # 資料載入測試
 │   ├── test_custom_dataset.py        # SSRF 防護與資料檢核測試
 │   ├── test_modeling.py              # 線性回歸訓練與指標測試

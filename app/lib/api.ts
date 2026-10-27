@@ -178,9 +178,3 @@ export async function predictSingle(
   }
   return res.json();
 }
-
-export async function fetchMarkdownReport(): Promise<string> {
-  const res = await fetch(`${BASE_URL}/api/reports/markdown`);
-  if (!res.ok) throw new Error('Failed to load markdown report');
-  return res.text();
-}

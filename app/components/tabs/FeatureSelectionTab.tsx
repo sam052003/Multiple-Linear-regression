@@ -57,7 +57,7 @@ export default function FeatureSelectionTab({
         setActiveMethodDetail(res.comparison_table[0].method);
       }
     } catch (err: any) {
-      setError(err.message || 'Feature selection computation failed');
+      setError(err.message || '特徵選擇運算失敗');
     } finally {
       setIsLoading(false);
     }
@@ -70,14 +70,14 @@ export default function FeatureSelectionTab({
 
   const comparisonPlotData = [
     {
-      name: 'Test R²',
+      name: '測試集決定係數（Test R²）',
       x: methods,
       y: r2Scores,
       type: 'bar',
       marker: { color: 'rgba(99, 102, 241, 0.85)' },
     },
     {
-      name: '5-Fold CV Mean R²',
+      name: '5 折交叉驗證平均 R²（5-Fold CV Mean R²）',
       x: methods,
       y: cvR2Scores,
       type: 'bar',
@@ -86,10 +86,10 @@ export default function FeatureSelectionTab({
   ];
 
   const comparisonPlotLayout = {
-    title: { text: 'Method Performance Comparison (R² & 5-Fold CV)', font: { size: 14, color: '#f1f5f9' } },
+    title: { text: '各特徵選擇方法之決定係數與交叉驗證比較 (R² & 5-Fold CV)', font: { size: 14, color: '#f1f5f9' } },
     barmode: 'group',
     xaxis: { tickangle: -20, automargin: true },
-    yaxis: { title: 'R² Score', range: [0, 1] },
+    yaxis: { title: '決定係數（R²）', range: [0, 1] },
     height: 360,
     legend: { orientation: 'h', y: 1.15, x: 0.1 },
   };
@@ -104,12 +104,12 @@ export default function FeatureSelectionTab({
       <div className="rounded-2xl border border-slate-800 bg-[#0f172a]/70 p-5 shadow-lg">
         <div className="flex items-center gap-2 mb-2">
           <span className="rounded-md border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-xs font-semibold text-indigo-400">
-            CRISP-DM Stage 4: Modeling & Feature Selection
+            CRISP-DM 第四階段：特徵選擇與建模（Modeling & Feature Selection）
           </span>
         </div>
-        <h3 className="text-xl font-bold text-white">5-Method Feature Selection & Benchmark</h3>
+        <h3 className="text-xl font-bold text-white">五種特徵選擇方法效能比較與基準模型評測</h3>
         <p className="text-xs text-slate-400">
-          Parallel comparative analysis of Filter, Wrapper (RFE & SFS), Embedded (Lasso), and Model-based (Permutation) methods against Baseline.
+          同時比較過濾法（Filter）、包裝法（RFE 與 SFS）、嵌入法（Lasso）及模型置換法（Permutation Importance）相對於全特徵基準模型之預測效能。
         </p>
       </div>
 
@@ -118,7 +118,7 @@ export default function FeatureSelectionTab({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-6">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Target Subset Size (k features):</label>
+              <label className="block text-xs font-medium text-slate-300 mb-1">目標特徵子集數量（k 個特徵）：</label>
               <div className="flex items-center gap-3">
                 <input
                   type="range"
@@ -143,7 +143,7 @@ export default function FeatureSelectionTab({
                 <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
                 <span className="ml-2 text-xs font-medium text-slate-300 flex items-center gap-1">
                   <Zap className="h-3.5 w-3.5 text-amber-400" />
-                  Fast Mode (Vercel Guard)
+                  快速運算模式（避免 Serverless 逾時）
                 </span>
               </label>
             </div>
@@ -157,12 +157,12 @@ export default function FeatureSelectionTab({
             {isLoading ? (
               <>
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                <span>Running 5 Algorithms & CV...</span>
+                <span>正在執行 5 種演算法與交叉驗證...</span>
               </>
             ) : (
               <>
                 <Sparkles className="h-4 w-4" />
-                <span>Run Feature Selection Comparison</span>
+                <span>執行特徵選擇比較（Run Feature Selection）</span>
               </>
             )}
           </button>
@@ -187,9 +187,9 @@ export default function FeatureSelectionTab({
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-amber-400">Top Performing Model</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-400">最佳綜合效能模型</span>
                     <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-                      Highest CV R²
+                      最高交叉驗證 R²
                     </span>
                   </div>
                   <h4 className="text-lg font-bold text-white mt-0.5">{fsResult.best_method}</h4>
@@ -204,7 +204,7 @@ export default function FeatureSelectionTab({
                   }}
                   className="flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-semibold text-slate-950 shadow-lg shadow-amber-500/30 hover:bg-amber-400 transition-all cursor-pointer"
                 >
-                  <span>Evaluate {selectedResult.method}</span>
+                  <span>評估與診斷 {selectedResult.method}</span>
                   <ArrowRight className="h-4 w-4" />
                 </button>
               )}
@@ -221,24 +221,24 @@ export default function FeatureSelectionTab({
             <div className="mb-4 flex items-center justify-between">
               <h4 className="text-sm font-semibold text-white flex items-center gap-2">
                 <Filter className="h-4 w-4 text-indigo-400" />
-                Complete Algorithms Benchmark Table
+                特徵選擇演算法完整效能比較表
               </h4>
-              <span className="text-xs text-slate-400">Click a row to inspect selected features</span>
+              <span className="text-xs text-slate-400">點擊各列可檢視所選特徵子集</span>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-300">
                 <thead className="border-b border-slate-800 bg-slate-900/60 text-slate-400 uppercase text-[10px]">
                   <tr>
-                    <th className="px-4 py-3">Method Name</th>
-                    <th className="px-4 py-3">Features Selected</th>
-                    <th className="px-4 py-3">Test R²</th>
-                    <th className="px-4 py-3">Adjusted R²</th>
-                    <th className="px-4 py-3">RMSE</th>
-                    <th className="px-4 py-3">MAE</th>
-                    <th className="px-4 py-3">5-Fold CV R²</th>
-                    <th className="px-4 py-3">Duration</th>
-                    <th className="px-4 py-3 text-right">Action</th>
+                    <th className="px-4 py-3">方法名稱（Method）</th>
+                    <th className="px-4 py-3">所選特徵數</th>
+                    <th className="px-4 py-3">測試集 R²</th>
+                    <th className="px-4 py-3">調整後 R²</th>
+                    <th className="px-4 py-3">均方根誤差（RMSE）</th>
+                    <th className="px-4 py-3">平均絕對誤差（MAE）</th>
+                    <th className="px-4 py-3">5 折交叉驗證 R²</th>
+                    <th className="px-4 py-3">計算耗時</th>
+                    <th className="px-4 py-3 text-right">操作</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
@@ -261,7 +261,7 @@ export default function FeatureSelectionTab({
                           <span>{res.method}</span>
                         </td>
                         <td className="px-4 py-3 font-mono text-[11px] text-slate-300">
-                          {res.features} features
+                          {res.features} 個特徵
                         </td>
                         <td className="px-4 py-3 font-mono font-semibold text-indigo-400">
                           {(res.r2 * 100).toFixed(2)}%
@@ -295,7 +295,7 @@ export default function FeatureSelectionTab({
                             }}
                             className="rounded-lg bg-indigo-600/20 border border-indigo-500/40 px-2.5 py-1 text-[11px] font-semibold text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all cursor-pointer"
                           >
-                            Select & Diagnose
+                            選擇並深入診斷
                           </button>
                         </td>
                       </tr>
@@ -311,7 +311,7 @@ export default function FeatureSelectionTab({
             <div className="glass-card rounded-2xl p-5">
               <h4 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                Selected Features in {selectedResult.method} ({selectedResult.features})
+                {selectedResult.method} 所選取的特徵組合（共 {selectedResult.features} 個）
               </h4>
               <div className="flex flex-wrap gap-2 mt-3">
                 {selectedResult.selected_features.map((feat) => (

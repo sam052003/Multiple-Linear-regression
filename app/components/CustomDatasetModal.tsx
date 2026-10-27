@@ -28,7 +28,7 @@ export default function CustomDatasetModal({
     e.preventDefault();
     setError(null);
     if (!url.startsWith('https://')) {
-      setError('Only secure HTTPS public URLs are allowed (SSRF protection).');
+      setError('僅支援安全的公開 HTTPS 網址（防範 SSRF 攻擊）。');
       return;
     }
     setIsLoading(true);
@@ -37,7 +37,7 @@ export default function CustomDatasetModal({
       onCustomLoaded(overview);
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to validate and load dataset.');
+      setError(err.message || '載入與驗證資料集失敗。');
     } finally {
       setIsLoading(false);
     }
@@ -48,12 +48,12 @@ export default function CustomDatasetModal({
     if (!file) return;
 
     if (!file.name.endsWith('.csv')) {
-      setError('Only .csv files are supported.');
+      setError('僅支援 .csv 檔案格式。');
       return;
     }
 
     if (file.size > 4.5 * 1024 * 1024) {
-      setError('File size exceeds Vercel Serverless Function limit (4.5 MB).');
+      setError('檔案大小超過 Vercel Serverless Function 限制（上限 4.5 MB）。');
       return;
     }
 
@@ -65,7 +65,7 @@ export default function CustomDatasetModal({
       onCustomLoaded(overview);
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Upload processing error.');
+      setError(err.message || '上傳與處理資料集時發生錯誤。');
     } finally {
       setIsLoading(false);
     }
@@ -86,8 +86,8 @@ export default function CustomDatasetModal({
             <Globe className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-white">Load Custom Dataset</h3>
-            <p className="text-xs text-slate-400">Bring your own data with SSRF protection</p>
+            <h3 className="text-lg font-bold text-white">載入自訂資料集 (Custom Dataset)</h3>
+            <p className="text-xs text-slate-400">支援自訂 CSV 檔案與公開 HTTPS 網址，內建 SSRF 安全防護</p>
           </div>
         </div>
 
@@ -99,7 +99,7 @@ export default function CustomDatasetModal({
               mode === 'url' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Public HTTPS URL
+            公開 HTTPS 網址
           </button>
           <button
             onClick={() => setMode('upload')}
@@ -107,7 +107,7 @@ export default function CustomDatasetModal({
               mode === 'upload' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Local CSV Upload
+            本機 CSV 上傳
           </button>
         </div>
 
@@ -121,7 +121,7 @@ export default function CustomDatasetModal({
         {mode === 'url' ? (
           <form onSubmit={handleUrlSubmit} className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-300">CSV Public URL</label>
+              <label className="mb-1 block text-xs font-medium text-slate-300">CSV 公開網址 (URL)</label>
               <input
                 type="url"
                 required
@@ -132,17 +132,17 @@ export default function CustomDatasetModal({
               />
               <div className="mt-1 flex items-center gap-1.5 text-[11px] text-emerald-400/90">
                 <ShieldCheck className="h-3.5 w-3.5" />
-                <span>SSRF Guard active: Private IPs (127.0.0.1, 10.x, 192.168.x) blocked.</span>
+                <span>SSRF 安全防護已啟動：禁止私有與內部 IP（127.0.0.1、10.x、192.168.x）。</span>
               </div>
             </div>
 
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-300">
-                Target Column Name <span className="text-slate-500">(Optional, defaults to last column)</span>
+                目標變數欄位名稱 (Target Column) <span className="text-slate-500">（選填，預設為最後一個欄位）</span>
               </label>
               <input
                 type="text"
-                placeholder="e.g. Price, Score, Target"
+                placeholder="例如：Price, Score, Target"
                 value={targetColumn}
                 onChange={(e) => setTargetColumn(e.target.value)}
                 className="w-full rounded-xl border border-slate-800 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-indigo-500"
@@ -155,24 +155,26 @@ export default function CustomDatasetModal({
                 onClick={onClose}
                 className="rounded-xl border border-slate-800 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800"
               >
-                Cancel
+                取消
               </button>
               <button
                 type="submit"
                 disabled={isLoading}
                 className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-lg shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50"
               >
-                {isLoading ? 'Verifying & Fetching...' : 'Load Dataset'}
+                {isLoading ? '正在驗證並載入...' : '載入資料集'}
               </button>
             </div>
           </form>
         ) : (
           <div className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-300">Target Column (Optional)</label>
+              <label className="mb-1 block text-xs font-medium text-slate-300">
+                目標變數欄位名稱 (Target Column) <span className="text-slate-500">（選填，預設為最後一個欄位）</span>
+              </label>
               <input
                 type="text"
-                placeholder="e.g. Target column name"
+                placeholder="例如：Price, Score, Target"
                 value={targetColumn}
                 onChange={(e) => setTargetColumn(e.target.value)}
                 className="w-full rounded-xl border border-slate-800 bg-slate-900/60 px-3.5 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-indigo-500"
@@ -182,10 +184,10 @@ export default function CustomDatasetModal({
             <label className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-700 bg-slate-900/40 p-6 text-center cursor-pointer hover:border-indigo-500 hover:bg-slate-900/80 transition-all">
               <Upload className="mb-2 h-8 w-8 text-indigo-400" />
               <span className="text-sm font-medium text-slate-200">
-                {isLoading ? 'Uploading & Processing...' : 'Click to select CSV file'}
+                {isLoading ? '正在上傳與處理...' : '點擊選取 CSV 檔案'}
               </span>
-              <span className="mt-1 text-xs text-slate-400 font-mono">Max: 4.5 MB / 5,000 rows</span>
-              <span className="mt-0.5 text-[11px] text-slate-500">Full dataset is analyzed without silent truncation</span>
+              <span className="mt-1 text-xs text-slate-400 font-mono">上限：4.5 MB / 5,000 筆資料</span>
+              <span className="mt-0.5 text-[11px] text-slate-500">完整資料集直接載入分析，不進行默默截斷</span>
               <input
                 type="file"
                 accept=".csv"

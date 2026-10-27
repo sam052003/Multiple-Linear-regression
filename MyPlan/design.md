@@ -815,7 +815,57 @@ FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamli
     9. `GET /api/reports/markdown`：完整 Markdown 綜合報告成功讀取 (4,972 字元)。
     10. `GET /api/reports/pdf`：正式研究論文 PDF 檔案成功下載 (6,484 位元組)。
     11. `GET /api/reports/download-results`：Metrics CSV (123,899 bytes) 與 Features CSV (2,715 bytes) 下載成功。
-- **規範遵循**：未合併至 `main` 分支，未執行正式 Production Deployment (`--prod`)，所有修正均記錄於 `migration/vercel` 分支。
+### 2026-10-27: UI Localization & Independent Report Architecture (繁體中文介面與獨立報告架構調整)
+- **進度**：全站繁體中文化完成（zh-Hant-TW）、正式學術報告自公開網站與公開 API 完全分離、離線報告腳本與研究素材完整保留、通過 39 項自動化測試與 Next.js 生產編譯。
+- **架構調整與設計細節**：
+  1. *網站改用繁體中文（zh-Hant-TW）*：
+     - **背景與目標**：為符合大學多元線性回歸作業與在地化展示需求，將網站主要語言規範為臺灣繁體中文（Traditional Chinese, Taiwan），消除所有簡體中文或純英文介面。
+     - **SEO 與 HTML**：於 `app/layout.tsx` 配置 `<html lang="zh-Hant-TW">`，更新 Metadata Title 為 `MLR Studio — 多元線性回歸與特徵選擇分析平台`，並提供流暢且專業的繁體中文 Description。
+     - **英文專業術語保留策略**：保留重要機器學習與統計學英文術語並採括號並列方式，例如：多元線性回歸（Multiple Linear Regression）、特徵選擇（Feature Selection）、資料探索分析（EDA）、平均絕對誤差（MAE）、均方根誤差（RMSE）、決定係數（R²）、95% 預測區間（Prediction Interval）、95% 信賴區間（Confidence Interval）、遞迴特徵消除（RFE）、循序特徵選擇（SFS）、普通最小平方法（OLS）。
+     - **資料完整性承諾**：未因介面翻譯而修改任何底層 Dataset 原始欄位名稱、JSON Key、API Endpoint、模型參數或變數名稱。
+  2. *六大網站分頁與 CRISP-DM 對應*：
+     - **分頁名稱更新**：
+       1. `1. 問題理解` (CRISP-DM Stage 1: Business Understanding)
+       2. `2. 資料理解` (CRISP-DM Stage 2: Data Understanding / EDA)
+       3. `3. 資料準備` (CRISP-DM Stage 3: Data Preparation / Leakage-Free Pipeline)
+       4. `4. 特徵選擇與建模` (CRISP-DM Stage 4: Modeling & Feature Selection)
+       5. `5. 模型評估與診斷` (CRISP-DM Stage 5: Evaluation & Statistical Diagnostics)
+       6. `6. 互動預測與應用` (CRISP-DM Stage 6: Deployment & Interactive Inference)
+     - **Problem Selector 規範**：
+       - `50_startups`: 50 Startups — 新創公司利潤預測（預設）
+       - `student_performance`: Student Performance — 學生成績預測（主要研究）
+       - `flood_probability`: Flood Probability — 洪水機率預測（比較研究）
+       - `custom`: ＋ 自訂資料集（CSV 網址／上傳）
+     - **Navbar 與狀態列**：副標題定為「多元線性回歸與特徵選擇分析平台」，FastAPI 連線狀態更新為「分析服務已連線」與「正在連接分析服務」。
+  3. *正式報告與公開網站完全分離 (Report Separation)*：
+     - **分離原因**：本專案之正式學術研究報告為獨立之學術作業繳交文件，包含完整推論推導、NotebookLM 文獻摘要與 AI 對話紀錄，不屬於互動 Dashboard 的展示與下載功能範疇。
+     - **前端移除**：從 `app/page.tsx` 完全移除 `ReportTab`、相關 Navigation 分頁與 Icon 匯入；刪除 `app/components/tabs/ReportTab.tsx`；從 `app/lib/api.ts` 移除 `fetchMarkdownReport()`，消除一切 Dead Imports 與 Dead Routes。
+     - **後端 API 隱藏**：從 `api/index.py` 移除 `reports.router` 的掛載（取消 `app.include_router(reports.router)`）。公開請求 `/api/reports/markdown`、`/api/reports/pdf`、`/api/reports/download-results` 均直接回傳 HTTP 404，嚴禁在公開雲端環境暴露完整學術報告內容。
+     - **離線報告資產完整保留**：
+       - 保留 `reports/` 目錄及其下所有檔案 (`final_report.md`, `final_report.pdf`, `notebooklm_summary.md`, `figures/`, `results/`, `ai_conversations/`)。
+       - 保留 `notebooks/`、`scripts/run_experiments.py` 與 `src/reporting.py`，離線報告產生模組完整可用。
+       - 保留網站互動分析之核心功能：散布圖、殘差分析、特徵比較、高斯-馬可夫五大假設檢定、95% 預測區間與預測紀錄 CSV 匯出。
+- **修改檔案清單**：
+  - `api/index.py`：取消掛載 `reports.router`。
+  - `app/lib/api.ts`：移除 `fetchMarkdownReport` API 呼叫。
+  - `app/layout.tsx`：設定 `lang="zh-Hant-TW"` 及繁體中文 Meta Title/Description。
+  - `app/page.tsx`：移除 `ReportTab` 導航與渲染，更新 6 大中文分頁、Loading 訊息與頁尾。
+  - `app/components/tabs/ReportTab.tsx`：刪除無用程式碼。
+  - `app/components/Navbar.tsx`：更新網站副標題、資料集選單文字、連線健康指標。
+  - `app/components/CustomDatasetModal.tsx`：完整繁體中文化表單、錯誤提示與按鈕。
+  - `app/components/tabs/OverviewTab.tsx`：Stage 1 問題理解繁體中文化。
+  - `app/components/tabs/DataUnderstandingTab.tsx`：Stage 2 資料理解 EDA 繁體中文化。
+  - `app/components/tabs/DataPreparationTab.tsx`：Stage 3 資料準備管線繁體中文化。
+  - `app/components/tabs/FeatureSelectionTab.tsx`：Stage 4 特徵選擇與模型評測繁體中文化。
+  - `app/components/tabs/EvaluationTab.tsx`：Stage 5 模型評估與迴歸診斷繁體中文化。
+  - `app/components/tabs/PredictionTab.tsx`：Stage 6 互動預測與部署推論繁體中文化。
+  - `tests/test_api.py`：更新 API 測試，驗證報告路由於公開應用已取消掛載 (404) 且離線報告生成功能正常。
+  - `MyPlan/design.md`：記錄中文化與報告分離架構細節。
+  - `README.md`：更新專案成果架構（Web Dashboard 與 Independent Research Report 分離）。
+- **驗證結果**：
+  - `pytest tests/ -v`：**39 passed, 0 failed** (包含報告端點 404 驗證與離線報告模組測試)。
+  - `npm run build`：編譯成功，TypeScript 型別檢驗與靜態頁面生成 100% 通過。
+
 
 
 

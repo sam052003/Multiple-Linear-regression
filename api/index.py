@@ -15,7 +15,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.schemas import HealthResponse
-from api.routers import datasets, analysis, predict, reports
+from api.routers import datasets, analysis, predict
 
 app = FastAPI(
     title="Multiple Linear Regression Dashboard API",
@@ -38,7 +38,6 @@ app.add_middleware(
 app.include_router(datasets.router, prefix="/api")
 app.include_router(analysis.router, prefix="/api")
 app.include_router(predict.router, prefix="/api")
-app.include_router(reports.router, prefix="/api")
 
 
 @app.get("/api/health", response_model=HealthResponse, tags=["health"])

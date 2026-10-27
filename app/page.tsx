@@ -9,7 +9,6 @@ import DataPreparationTab from './components/tabs/DataPreparationTab';
 import FeatureSelectionTab from './components/tabs/FeatureSelectionTab';
 import EvaluationTab from './components/tabs/EvaluationTab';
 import PredictionTab from './components/tabs/PredictionTab';
-import ReportTab from './components/tabs/ReportTab';
 
 import {
   DatasetItem,
@@ -27,7 +26,6 @@ import {
   Sparkles,
   Activity,
   Calculator,
-  FileText,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -83,13 +81,12 @@ export default function DashboardPage() {
   };
 
   const tabs = [
-    { id: 'overview', label: '1. Business Understanding', icon: BookOpen },
-    { id: 'understanding', label: '2. Data Understanding', icon: PieChart },
-    { id: 'preparation', label: '3. Data Preparation', icon: Sliders },
-    { id: 'feature_selection', label: '4. Feature Selection', icon: Sparkles },
-    { id: 'evaluation', label: '5. Evaluation & Diagnostics', icon: Activity },
-    { id: 'prediction', label: '6. Interactive Prediction', icon: Calculator },
-    { id: 'report', label: 'Reports & Downloads', icon: FileText },
+    { id: 'overview', label: '1. 問題理解', icon: BookOpen },
+    { id: 'understanding', label: '2. 資料理解', icon: PieChart },
+    { id: 'preparation', label: '3. 資料準備', icon: Sliders },
+    { id: 'feature_selection', label: '4. 特徵選擇與建模', icon: Sparkles },
+    { id: 'evaluation', label: '5. 模型評估與診斷', icon: Activity },
+    { id: 'prediction', label: '6. 互動預測與應用', icon: Calculator },
   ];
 
   return (
@@ -135,7 +132,7 @@ export default function DashboardPage() {
             <div className="flex h-72 items-center justify-center">
               <div className="flex flex-col items-center gap-3">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-                <span className="text-sm font-medium text-slate-400">Loading Problem Dataset...</span>
+                <span className="text-sm font-medium text-slate-400">正在載入問題資料集...</span>
               </div>
             </div>
           ) : (
@@ -184,8 +181,6 @@ export default function DashboardPage() {
               )}
 
               {activeTab === 'prediction' && <PredictionTab overview={overview} />}
-
-              {activeTab === 'report' && <ReportTab />}
             </>
           )}
         </div>
@@ -195,7 +190,7 @@ export default function DashboardPage() {
       <footer className="mt-auto border-t border-slate-800/80 bg-[#090d16] py-6 text-center text-xs text-slate-500">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <p>
-            Multiple Linear Regression Dashboard — CRISP-DM Analysis Engine.
+            MLR Studio — 多元線性回歸與特徵選擇分析平台（CRISP-DM 架構）
           </p>
           <p className="mt-1 text-[11px] text-slate-600">
             Powered by Next.js 14, TypeScript, Tailwind CSS, Plotly.js & FastAPI (Python Machine Learning Core)

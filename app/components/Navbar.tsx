@@ -36,7 +36,7 @@ export default function Navbar({
                 CRISP-DM v2.0
               </span>
             </div>
-            <p className="text-xs text-slate-400">Multiple Linear Regression & Feature Selection</p>
+            <p className="text-xs text-slate-400">多元線性回歸與特徵選擇分析平台</p>
           </div>
         </div>
 
@@ -55,20 +55,20 @@ export default function Navbar({
               }}
               className="bg-transparent px-3 py-1 text-sm font-medium text-slate-200 outline-none hover:text-white cursor-pointer"
             >
-              <optgroup label="Core Problems">
+              <optgroup label="內建資料集問題">
                 <option value="50_startups" className="bg-slate-900 text-slate-200">
-                  50 Startups (Default Teaching Case)
+                  50 Startups — 新創公司利潤預測（預設）
                 </option>
                 <option value="student_performance" className="bg-slate-900 text-slate-200">
-                  Student Performance (Primary Research, 19 Features)
+                  Student Performance — 學生成績預測（主要研究）
                 </option>
                 <option value="flood_probability" className="bg-slate-900 text-slate-200">
-                  Flood Probability (Synthetic Big Data, 20 Features)
+                  Flood Probability — 洪水機率預測（比較研究）
                 </option>
               </optgroup>
-              <optgroup label="Custom Dataset">
+              <optgroup label="自訂資料集">
                 <option value="custom" className="bg-slate-900 text-indigo-300">
-                  + Custom Dataset (URL / Upload)...
+                  ＋ 自訂資料集（CSV 網址／上傳）
                 </option>
               </optgroup>
             </select>
@@ -88,12 +88,12 @@ export default function Navbar({
             {isBackendHealthy ? (
               <>
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                <span>FastAPI Connected</span>
+                <span>分析服務已連線</span>
               </>
             ) : (
               <>
                 <AlertCircle className="h-3.5 w-3.5" />
-                <span>API Connecting...</span>
+                <span>正在連接分析服務</span>
               </>
             )}
           </div>

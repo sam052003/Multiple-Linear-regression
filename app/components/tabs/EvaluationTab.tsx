@@ -50,7 +50,7 @@ export default function EvaluationTab({
       );
       onEvalComplete(res);
     } catch (err: any) {
-      setError(err.message || 'Evaluation computation failed');
+      setError(err.message || '模型評估運算失敗');
     } finally {
       setIsLoading(false);
     }
@@ -71,7 +71,7 @@ export default function EvaluationTab({
           y: preds,
           mode: 'markers',
           type: 'scatter',
-          name: 'Observations',
+          name: '觀測樣本點',
           marker: { color: 'rgba(99, 102, 241, 0.7)', size: 6 },
         },
         {
@@ -79,16 +79,16 @@ export default function EvaluationTab({
           y: [minVal, maxVal],
           mode: 'lines',
           type: 'scatter',
-          name: 'Ideal (y = x)',
+          name: '理想擬合線 (y = x)',
           line: { color: '#ec4899', dash: 'dash', width: 2 },
         },
       ]
     : [];
 
   const actualVsPredLayout = {
-    title: { text: 'Actual vs. Predicted Values', font: { size: 14, color: '#f1f5f9' } },
-    xaxis: { title: 'Actual Target Values' },
-    yaxis: { title: 'Predicted Values' },
+    title: { text: '實際值與預測值散布圖（Actual vs. Predicted）', font: { size: 14, color: '#f1f5f9' } },
+    xaxis: { title: '實際目標變數值（Actual Target）' },
+    yaxis: { title: '模型預測值（Predicted Value）' },
     height: 380,
   };
 
@@ -113,7 +113,7 @@ export default function EvaluationTab({
         fill: 'toself',
         fillcolor: 'rgba(99, 102, 241, 0.12)',
         line: { color: 'transparent' },
-        name: '95% Prediction Interval (Individual)',
+        name: '95% 預測區間（單一觀測值 Prediction Interval）',
         showlegend: true,
         type: 'scatter',
       },
@@ -124,7 +124,7 @@ export default function EvaluationTab({
         fill: 'toself',
         fillcolor: 'rgba(168, 85, 247, 0.25)',
         line: { color: 'transparent' },
-        name: '95% Confidence Interval (Mean)',
+        name: '95% 信賴區間（母體平均值 Confidence Interval）',
         showlegend: true,
         type: 'scatter',
       },
@@ -133,7 +133,7 @@ export default function EvaluationTab({
         x: x,
         y: yPred,
         mode: 'lines',
-        name: 'Fitted Mean E(y|X)',
+        name: '擬合期望值 E(y|X)',
         line: { color: '#818cf8', width: 2.5 },
         type: 'scatter',
       },
@@ -142,7 +142,7 @@ export default function EvaluationTab({
         x: x,
         y: yTrue,
         mode: 'markers',
-        name: 'Actual Observation (y)',
+        name: '實際觀測值 (y)',
         marker: { color: '#38bdf8', size: 5 },
         type: 'scatter',
       },
@@ -151,10 +151,10 @@ export default function EvaluationTab({
 
   const piPlotLayout = {
     title: {
-      text: '95% Confidence Interval (Mean) vs. 95% Prediction Interval (Observation)',
+      text: '95% 母體平均值信賴區間 vs. 95% 單一觀測值預測區間',
       font: { size: 14, color: '#f1f5f9' },
     },
-    xaxis: { title: 'Test Observations (Ranked by Predicted Value)' },
+    xaxis: { title: '測試集樣本（依預測值由低至高排序）' },
     yaxis: { title: overview.target_column },
     height: 400,
     legend: { orientation: 'h', y: 1.15, x: 0 },
@@ -168,23 +168,23 @@ export default function EvaluationTab({
           y: residuals,
           mode: 'markers',
           type: 'scatter',
-          name: 'Residuals',
+          name: '殘差分佈點',
           marker: { color: 'rgba(236, 72, 153, 0.7)', size: 5 },
         },
         {
           x: preds.length > 0 ? [Math.min(...preds), Math.max(...preds)] : [0, 1],
           y: [0, 0],
           mode: 'lines',
-          name: 'Zero Residual',
+          name: '零殘差基準線',
           line: { color: '#ffffff', width: 1.5, dash: 'dot' },
         },
       ]
     : [];
 
   const resPlotLayout = {
-    title: { text: 'Residuals vs. Fitted Values', font: { size: 14, color: '#f1f5f9' } },
-    xaxis: { title: 'Fitted (Predicted) Values' },
-    yaxis: { title: 'Residuals (e = y - y_hat)' },
+    title: { text: '殘差與擬合值散布圖（Residuals vs. Fitted Values）', font: { size: 14, color: '#f1f5f9' } },
+    xaxis: { title: '模型擬合值（Fitted Values）' },
+    yaxis: { title: '殘差（Residuals: e = y - ŷ）' },
     height: 380,
   };
 
@@ -196,14 +196,14 @@ export default function EvaluationTab({
       <div className="rounded-2xl border border-slate-800 bg-[#0f172a]/70 p-5 shadow-lg">
         <div className="flex items-center gap-2 mb-2">
           <span className="rounded-md border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-xs font-semibold text-indigo-400">
-            CRISP-DM Stage 5: Evaluation & Statistical Diagnostics
+            CRISP-DM 第五階段：模型評估與診斷（Evaluation & Regression Diagnostics）
           </span>
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h3 className="text-xl font-bold text-white">Model Evaluation & Assumption Diagnostics</h3>
+            <h3 className="text-xl font-bold text-white">模型評估與統計假設檢定</h3>
             <p className="text-xs text-slate-400">
-              Assessing predictive accuracy, 95% Prediction Interval coverage, and validating 5 Gauss-Markov assumptions.
+              評估預測精準度、95% 預測區間涵蓋率，並針對高斯-馬可夫（Gauss-Markov）五大經典回歸統計假設進行全面檢定。
             </p>
           </div>
 
@@ -215,12 +215,12 @@ export default function EvaluationTab({
             {isLoading ? (
               <>
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                <span>Computing OLS & Assumptions...</span>
+                <span>正在計算 OLS 與統計假設檢定...</span>
               </>
             ) : (
               <>
                 <Play className="h-4 w-4 fill-current" />
-                <span>{evalResult ? 'Re-run Evaluation' : 'Run Evaluation Diagnostics'}</span>
+                <span>{evalResult ? '重新執行模型診斷' : '執行模型評估與統計診斷'}</span>
               </>
             )}
           </button>
@@ -239,9 +239,9 @@ export default function EvaluationTab({
           <div className="flex items-start gap-3 rounded-2xl border border-indigo-500/30 bg-indigo-950/20 p-4 text-xs text-indigo-200">
             <Info className="h-5 w-5 shrink-0 text-indigo-400 mt-0.5" />
             <div>
-              <span className="font-semibold text-white">Post-Selection Inference Methodology Notice:</span>
+              <span className="font-semibold text-white">特徵選擇後推論（Post-Selection Inference）方法論提示：</span>
               <p className="mt-0.5 text-slate-300">
-                When evaluating models built on selected features, standard OLS confidence and prediction intervals are conditioned on the chosen feature subset. True confidence intervals post-selection may be wider due to model selection uncertainty.
+                當使用特徵選擇演算法篩選出的變數進行模型評估時，標準 OLS 的信賴區間與預測區間是條件於所選特徵子集之下的計算結果。真實情境下，因包含模型選擇的不確定性，未經校正的區間可能呈現名義過窄現象，應結合測試集實際涵蓋率審慎評估。
               </p>
             </div>
           </div>
@@ -249,22 +249,22 @@ export default function EvaluationTab({
           {/* Metric KPI Cards (Train vs Test) */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <div className="glass-card rounded-2xl p-4 text-center">
-              <span className="text-[10px] uppercase tracking-wider text-slate-400">Test R²</span>
+              <span className="text-[10px] uppercase tracking-wider text-slate-400">測試集 R²</span>
               <p className="text-2xl font-bold font-mono text-indigo-400 mt-1">
                 {(evalResult.test_metrics.R2 * 100).toFixed(2)}%
               </p>
-              <span className="text-[10px] text-slate-500">Train: {(evalResult.train_metrics.R2 * 100).toFixed(2)}%</span>
+              <span className="text-[10px] text-slate-500">訓練集：{(evalResult.train_metrics.R2 * 100).toFixed(2)}%</span>
             </div>
 
             <div className="glass-card rounded-2xl p-4 text-center">
-              <span className="text-[10px] uppercase tracking-wider text-slate-400">Adjusted R²</span>
+              <span className="text-[10px] uppercase tracking-wider text-slate-400">調整後 R²</span>
               <p className="text-2xl font-bold font-mono text-purple-400 mt-1">
                 {evalResult.test_metrics.Adj_R2 !== null && evalResult.test_metrics.Adj_R2 !== undefined
                   ? `${(evalResult.test_metrics.Adj_R2 * 100).toFixed(2)}%`
                   : 'N/A'}
               </p>
               <span className="text-[10px] text-slate-500">
-                Train:{' '}
+                訓練集：{' '}
                 {evalResult.train_metrics.Adj_R2 !== null && evalResult.train_metrics.Adj_R2 !== undefined
                   ? `${(evalResult.train_metrics.Adj_R2 * 100).toFixed(2)}%`
                   : 'N/A'}
@@ -272,27 +272,27 @@ export default function EvaluationTab({
             </div>
 
             <div className="glass-card rounded-2xl p-4 text-center">
-              <span className="text-[10px] uppercase tracking-wider text-slate-400">Test RMSE</span>
+              <span className="text-[10px] uppercase tracking-wider text-slate-400">均方根誤差（RMSE）</span>
               <p className="text-2xl font-bold font-mono text-pink-400 mt-1">
                 {evalResult.test_metrics.RMSE.toFixed(3)}
               </p>
-              <span className="text-[10px] text-slate-500">Train: {evalResult.train_metrics.RMSE.toFixed(3)}</span>
+              <span className="text-[10px] text-slate-500">訓練集：{evalResult.train_metrics.RMSE.toFixed(3)}</span>
             </div>
 
             <div className="glass-card rounded-2xl p-4 text-center">
-              <span className="text-[10px] uppercase tracking-wider text-slate-400">Test MAE</span>
+              <span className="text-[10px] uppercase tracking-wider text-slate-400">平均絕對誤差（MAE）</span>
               <p className="text-2xl font-bold font-mono text-slate-200 mt-1">
                 {evalResult.test_metrics.MAE.toFixed(3)}
               </p>
-              <span className="text-[10px] text-slate-500">Train: {evalResult.train_metrics.MAE.toFixed(3)}</span>
+              <span className="text-[10px] text-slate-500">訓練集：{evalResult.train_metrics.MAE.toFixed(3)}</span>
             </div>
 
             <div className="glass-card rounded-2xl p-4 text-center col-span-2 sm:col-span-1">
-              <span className="text-[10px] uppercase tracking-wider text-slate-400">Test MSE</span>
+              <span className="text-[10px] uppercase tracking-wider text-slate-400">均方誤差（MSE）</span>
               <p className="text-2xl font-bold font-mono text-emerald-400 mt-1">
                 {evalResult.test_metrics.MSE.toFixed(3)}
               </p>
-              <span className="text-[10px] text-slate-500">Squared error</span>
+              <span className="text-[10px] text-slate-500">平方誤差懲罰</span>
             </div>
           </div>
 
@@ -302,7 +302,7 @@ export default function EvaluationTab({
             <div className="mt-3 flex items-center gap-2 text-xs text-slate-400 border-t border-slate-800/60 pt-3">
               <Scale className="h-4 w-4 text-indigo-400 shrink-0" />
               <span>
-                <strong>Statistical Theorem:</strong> Notice that the 95% Prediction Interval (Observation) is strictly wider than the 95% Confidence Interval (Mean) due to the individual random shock term $\sigma^2_\epsilon$.
+                <strong>統計推論定理：</strong>請注意 95% 預測區間（單一觀測值）必然顯著寬於 95% 信賴區間（母體平均值），原因在於預測單一未來的觀測值時，除了包含參數估計的標準誤外，還必須納入個別隨機誤差項變異 $\sigma^2_\epsilon$。
               </span>
             </div>
           </div>
@@ -323,17 +323,17 @@ export default function EvaluationTab({
             <div className="rounded-2xl border border-slate-800 bg-[#0f172a]/70 p-6 shadow-lg">
               <div className="flex items-center gap-2 mb-4">
                 <ShieldAlert className="h-5 w-5 text-indigo-400" />
-                <h4 className="text-base font-bold text-white">5 Classical Linear Regression Assumptions (Gauss-Markov)</h4>
+                <h4 className="text-base font-bold text-white">五大經典線性回歸統計假設檢定（Gauss-Markov 定理）</h4>
               </div>
 
               {/* Assumption Tabs Switch */}
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 rounded-xl border border-slate-800 bg-slate-900/80 p-1 mb-5">
                 {[
-                  { key: 'linearity', label: '1. Linearity' },
-                  { key: 'independence', label: '2. Independence' },
-                  { key: 'homoscedasticity', label: '3. Homoscedasticity' },
-                  { key: 'normality', label: '4. Normality' },
-                  { key: 'vif', label: '5. Multicollinearity' },
+                  { key: 'linearity', label: '1. 線性性 (Linearity)' },
+                  { key: 'independence', label: '2. 殘差獨立性 (Independence)' },
+                  { key: 'homoscedasticity', label: '3. 同質變異性 (Homoscedasticity)' },
+                  { key: 'normality', label: '4. 殘差常態性 (Normality)' },
+                  { key: 'vif', label: '5. 多重共線性 (VIF)' },
                 ].map((item) => (
                   <button
                     key={item.key}
@@ -355,7 +355,7 @@ export default function EvaluationTab({
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <span className="text-sm font-semibold text-white">{assumptions.linearity.diagnostic}</span>
                     <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-400">
-                      Method: {assumptions.linearity.method}
+                      檢定方法：{assumptions.linearity.method}
                     </span>
                   </div>
                   <p className="text-xs text-slate-300">
@@ -371,15 +371,15 @@ export default function EvaluationTab({
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <span className="text-sm font-semibold text-white">{assumptions.independence.diagnostic}</span>
                     <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-400">
-                      Method: {assumptions.independence.method}
+                      檢定方法：{assumptions.independence.method}
                     </span>
                   </div>
                   <p className="text-xs text-slate-300">
-                    {assumptions.independence.metric_name}: <strong className="font-mono text-indigo-400">{String(assumptions.independence.value)}</strong> (Expected range: 1.5 ~ 2.5 for independent errors)
+                    {assumptions.independence.metric_name}: <strong className="font-mono text-indigo-400">{String(assumptions.independence.value)}</strong>（常規獨立無自相關範圍：1.5 ~ 2.5）
                   </p>
                   <p className="text-xs text-slate-400">{assumptions.independence.interpretation}</p>
                   <div className="rounded-xl border border-indigo-500/20 bg-indigo-950/20 p-3 text-xs text-indigo-300">
-                    <strong>Limitation Note:</strong> {assumptions.independence.limitations}
+                    <strong>檢定限制說明：</strong> {assumptions.independence.limitations}
                   </div>
                 </div>
               )}
@@ -390,11 +390,11 @@ export default function EvaluationTab({
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <span className="text-sm font-semibold text-white">{assumptions.homoscedasticity.diagnostic}</span>
                     <span className="rounded-full bg-indigo-500/10 border border-indigo-500/30 px-3 py-1 text-xs font-semibold text-indigo-400">
-                      Method: {assumptions.homoscedasticity.method}
+                      檢定方法：{assumptions.homoscedasticity.method}
                     </span>
                   </div>
                   <p className="text-xs text-slate-300">
-                    LM Statistic: <strong className="font-mono text-slate-200">{String(assumptions.homoscedasticity.value)}</strong> | p-value: <strong className="font-mono text-purple-400">{assumptions.homoscedasticity.extra?.p_value !== undefined ? assumptions.homoscedasticity.extra.p_value.toExponential(3) : 'N/A'}</strong>
+                    LM 統計量: <strong className="font-mono text-slate-200">{String(assumptions.homoscedasticity.value)}</strong> | p-value: <strong className="font-mono text-purple-400">{assumptions.homoscedasticity.extra?.p_value !== undefined ? assumptions.homoscedasticity.extra.p_value.toExponential(3) : 'N/A'}</strong>
                   </p>
                   <p className="text-xs text-slate-400">{assumptions.homoscedasticity.interpretation}</p>
                   <p className="text-[11px] text-slate-500 italic">{assumptions.homoscedasticity.limitations}</p>
@@ -407,11 +407,11 @@ export default function EvaluationTab({
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <span className="text-sm font-semibold text-white">{assumptions.normality.diagnostic}</span>
                     <span className="rounded-full bg-indigo-500/10 border border-indigo-500/30 px-3 py-1 text-xs font-semibold text-indigo-400">
-                      Method: {assumptions.normality.method}
+                      檢定方法：{assumptions.normality.method}
                     </span>
                   </div>
                   <p className="text-xs text-slate-300">
-                    Statistic: <strong className="font-mono text-slate-200">{String(assumptions.normality.value)}</strong> | p-value: <strong className="font-mono text-purple-400">{assumptions.normality.extra?.p_value !== undefined ? assumptions.normality.extra.p_value.toExponential(3) : 'N/A'}</strong>
+                    統計量: <strong className="font-mono text-slate-200">{String(assumptions.normality.value)}</strong> | p-value: <strong className="font-mono text-purple-400">{assumptions.normality.extra?.p_value !== undefined ? assumptions.normality.extra.p_value.toExponential(3) : 'N/A'}</strong>
                   </p>
                   <p className="text-xs text-slate-400">{assumptions.normality.interpretation}</p>
                   <p className="text-[11px] text-slate-500 italic">{assumptions.normality.limitations}</p>
@@ -432,9 +432,9 @@ export default function EvaluationTab({
                     <table className="w-full text-left text-xs text-slate-300">
                       <thead className="bg-slate-900/80 text-[10px] uppercase text-slate-400 sticky top-0">
                         <tr>
-                          <th className="px-4 py-2">Feature</th>
-                          <th className="px-4 py-2">VIF Score</th>
-                          <th className="px-4 py-2">Assessment</th>
+                          <th className="px-4 py-2">特徵名稱</th>
+                          <th className="px-4 py-2">VIF 分數</th>
+                          <th className="px-4 py-2">共線性程度評估</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/60">
@@ -447,11 +447,11 @@ export default function EvaluationTab({
                               <td className="px-4 py-2 font-mono font-semibold text-indigo-400">{vifVal.toFixed(2)}</td>
                               <td className="px-4 py-2">
                                 {vifVal < 5 ? (
-                                  <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">Low (&lt; 5)</span>
+                                  <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">低共線性（&lt; 5）</span>
                                 ) : vifVal < 10 ? (
-                                  <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">Moderate (&lt; 10)</span>
+                                  <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">中度共線性（&lt; 10）</span>
                                 ) : (
-                                  <span className="text-[10px] text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">Severe (&gt; 10)</span>
+                                  <span className="text-[10px] text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">嚴重共線性（&gt; 10）</span>
                                 )}
                               </td>
                             </tr>

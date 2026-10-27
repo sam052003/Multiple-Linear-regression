@@ -36,11 +36,11 @@ export default function DataUnderstandingTab({ overview }: DataUnderstandingTabP
 
   const correlationPlotLayout = {
     title: {
-      text: `Pearson Correlation with Target (${overview.target_column})`,
+      text: `各特徵與目標變數 (${overview.target_column}) 之皮爾森相關係數（Pearson Correlation）`,
       font: { size: 14, color: '#f1f5f9' },
     },
     xaxis: { tickangle: -35, automargin: true },
-    yaxis: { title: 'Correlation Coefficient (r)', range: [-1, 1] },
+    yaxis: { title: '皮爾森相關係數 (r)', range: [-1, 1] },
     height: 380,
   };
 
@@ -52,12 +52,12 @@ export default function DataUnderstandingTab({ overview }: DataUnderstandingTabP
       <div className="rounded-2xl border border-slate-800 bg-[#0f172a]/70 p-5 shadow-lg">
         <div className="flex items-center gap-2 mb-2">
           <span className="rounded-md border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-xs font-semibold text-indigo-400">
-            CRISP-DM Stage 2: Data Understanding
+            CRISP-DM 第二階段：資料理解（Data Understanding）
           </span>
         </div>
-        <h3 className="text-xl font-bold text-white">Exploratory Data Analysis (EDA)</h3>
+        <h3 className="text-xl font-bold text-white">資料探索分析（EDA）與品質診斷</h3>
         <p className="text-xs text-slate-400">
-          Understanding feature distributions, Pearson correlation with target variable, and missing data completeness.
+          檢視特徵分布概況、皮爾森相關係數（Pearson Correlation）與資料缺失完整性。
         </p>
       </div>
 
@@ -66,33 +66,33 @@ export default function DataUnderstandingTab({ overview }: DataUnderstandingTabP
         <div className="glass-card rounded-2xl p-5 md:col-span-1">
           <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-pink-400" />
-            Target Variable Profile
+            目標變數輪廓（Target Profile）
           </h4>
           <div className="space-y-3 text-xs">
             <div className="flex justify-between border-b border-slate-800/80 pb-2">
-              <span className="text-slate-400">Target Name:</span>
+              <span className="text-slate-400">目標變數名稱：</span>
               <span className="font-mono font-semibold text-pink-400">{overview.target_column}</span>
             </div>
             <div className="flex justify-between border-b border-slate-800/80 pb-2">
-              <span className="text-slate-400">Mean:</span>
+              <span className="text-slate-400">平均值（Mean）：</span>
               <span className="font-mono text-slate-200">
                 {overview.target_stats?.mean !== undefined ? overview.target_stats.mean.toFixed(2) : 'N/A'}
               </span>
             </div>
             <div className="flex justify-between border-b border-slate-800/80 pb-2">
-              <span className="text-slate-400">Std Deviation:</span>
+              <span className="text-slate-400">標準差（Std）：</span>
               <span className="font-mono text-slate-200">
                 {overview.target_stats?.std !== undefined ? overview.target_stats.std.toFixed(2) : 'N/A'}
               </span>
             </div>
             <div className="flex justify-between border-b border-slate-800/80 pb-2">
-              <span className="text-slate-400">Min Value:</span>
+              <span className="text-slate-400">最小值（Min）：</span>
               <span className="font-mono text-slate-200">
                 {overview.target_stats?.min !== undefined ? overview.target_stats.min.toFixed(2) : 'N/A'}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">Max Value:</span>
+              <span className="text-slate-400">最大值（Max）：</span>
               <span className="font-mono text-slate-200">
                 {overview.target_stats?.max !== undefined ? overview.target_stats.max.toFixed(2) : 'N/A'}
               </span>
@@ -104,21 +104,21 @@ export default function DataUnderstandingTab({ overview }: DataUnderstandingTabP
         <div className="glass-card rounded-2xl p-5 md:col-span-2">
           <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
             <Database className="h-4 w-4 text-indigo-400" />
-            Data Quality & Completeness
+            資料品質與完整性（Data Quality）
           </h4>
           {hasMissing ? (
             <div className="space-y-2">
               <p className="text-xs text-amber-300 flex items-center gap-1.5">
                 <AlertCircle className="h-4 w-4" />
-                Missing values detected. The automated Pipeline will apply median imputation for numeric features and mode imputation for categorical features.
+                偵測到缺失值。回歸管線（Pipeline）將自動進行中位數（數值型）或眾數（類別型）補值處理。
               </p>
               <div className="max-h-36 overflow-y-auto">
                 <table className="w-full text-xs text-left text-slate-300">
                   <thead className="text-[11px] text-slate-400 bg-slate-900/40">
                     <tr>
-                      <th className="px-3 py-1.5">Feature</th>
-                      <th className="px-3 py-1.5">Missing Count</th>
-                      <th className="px-3 py-1.5">Ratio</th>
+                      <th className="px-3 py-1.5">特徵欄位</th>
+                      <th className="px-3 py-1.5">缺失數量</th>
+                      <th className="px-3 py-1.5">缺失比例</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -138,9 +138,9 @@ export default function DataUnderstandingTab({ overview }: DataUnderstandingTabP
               <span className="rounded-full bg-emerald-500/10 p-3 text-emerald-400 mb-2">
                 <ShieldAlert className="h-6 w-6" />
               </span>
-              <p className="text-sm font-semibold text-emerald-400">Zero Missing Values Detected</p>
+              <p className="text-sm font-semibold text-emerald-400">資料完整無缺失值（Zero Missing Values）</p>
               <p className="text-xs text-slate-400 mt-1">
-                All {overview.n_rows.toLocaleString()} records across {overview.n_cols} columns are complete.
+                全體 {overview.n_rows.toLocaleString()} 筆資料、{overview.n_cols} 個欄位均具備完整數值。
               </p>
             </div>
           )}
@@ -152,7 +152,7 @@ export default function DataUnderstandingTab({ overview }: DataUnderstandingTabP
         <div className="rounded-2xl border border-slate-800 bg-[#0f172a]/70 p-5 shadow-lg">
           <div className="flex items-center gap-2 mb-4">
             <BarChart3 className="h-4 w-4 text-indigo-400" />
-            <h4 className="text-sm font-semibold text-white">Target Correlation Analysis</h4>
+            <h4 className="text-sm font-semibold text-white">目標變數關聯性分析（Correlation Ranking）</h4>
           </div>
           <PlotlyChart data={correlationPlotData} layout={correlationPlotLayout} />
         </div>
@@ -162,7 +162,7 @@ export default function DataUnderstandingTab({ overview }: DataUnderstandingTabP
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="glass-card rounded-2xl p-5">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-indigo-400 mb-3">
-            Numeric Features ({overview.numeric_columns.length})
+            數值型特徵（Numeric Features） ({overview.numeric_columns.length})
           </h4>
           <div className="flex flex-wrap gap-1.5">
             {overview.numeric_columns.map((feat) => (
@@ -178,7 +178,7 @@ export default function DataUnderstandingTab({ overview }: DataUnderstandingTabP
 
         <div className="glass-card rounded-2xl p-5">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-purple-400 mb-3">
-            Categorical Features ({overview.categorical_columns.length})
+            類別型特徵（Categorical Features） ({overview.categorical_columns.length})
           </h4>
           <div className="flex flex-wrap gap-1.5">
             {overview.categorical_columns.length > 0 ? (
@@ -191,7 +191,7 @@ export default function DataUnderstandingTab({ overview }: DataUnderstandingTabP
                 </span>
               ))
             ) : (
-              <span className="text-xs text-slate-500 italic">None (All features are numeric)</span>
+              <span className="text-xs text-slate-500 italic">無（全數為數值特徵）</span>
             )}
           </div>
         </div>
