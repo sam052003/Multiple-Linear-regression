@@ -13,7 +13,7 @@ export default function DataUnderstandingTab({ overview }: DataUnderstandingTabP
   if (!overview) return null;
 
   // Prepare data for Correlation with Target bar chart
-  const corrEntries = Object.entries(overview.correlation_with_target || {})
+  const corrEntries = Object.entries(overview.target_correlation || {})
     .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
 
   const corrFeatures = corrEntries.map(([feat]) => feat);
@@ -44,7 +44,8 @@ export default function DataUnderstandingTab({ overview }: DataUnderstandingTabP
     height: 380,
   };
 
-  const hasMissing = Object.values(overview.missing_values || {}).some((v) => v > 0);
+  const missingSummary = overview.quality_summary?.missing_summary || {};
+  const hasMissing = Object.keys(missingSummary).length > 0;
 
   return (
     <div className="space-y-6">
@@ -56,7 +57,7 @@ export default function DataUnderstandingTab({ overview }: DataUnderstandingTabP
         </div>
         <h3 className="text-xl font-bold text-white">Exploratory Data Analysis (EDA)</h3>
         <p className="text-xs text-slate-400">
-          Understanding feature distributions, correlation with target variable, and missing data profile.
+          Understanding feature distributions, Pearson correlation with target variable, and missing data completeness.
         </p>
       </div>
 
@@ -74,19 +75,27 @@ export default function DataUnderstandingTab({ overview }: DataUnderstandingTabP
             </div>
             <div className="flex justify-between border-b border-slate-800/80 pb-2">
               <span className="text-slate-400">Mean:</span>
-              <span className="font-mono text-slate-200">{overview.target_mean?.toFixed(2)}</span>
+              <span className="font-mono text-slate-200">
+                {overview.target_stats?.mean !== undefined ? overview.target_stats.mean.toFixed(2) : 'N/A'}
+              </span>
             </div>
             <div className="flex justify-between border-b border-slate-800/80 pb-2">
               <span className="text-slate-400">Std Deviation:</span>
-              <span className="font-mono text-slate-200">{overview.target_std?.toFixed(2)}</span>
+              <span className="font-mono text-slate-200">
+                {overview.target_stats?.std !== undefined ? overview.target_stats.std.toFixed(2) : 'N/A'}
+              </span>
             </div>
             <div className="flex justify-between border-b border-slate-800/80 pb-2">
               <span className="text-slate-400">Min Value:</span>
-              <span className="font-mono text-slate-200">{overview.target_min?.toFixed(2)}</span>
+              <span className="font-mono text-slate-200">
+                {overview.target_stats?.min !== undefined ? overview.target_stats.min.toFixed(2) : 'N/A'}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">Max Value:</span>
-              <span className="font-mono text-slate-200">{overview.target_max?.toFixed(2)}</span>
+              <span className="font-mono text-slate-200">
+                {overview.target_stats?.max !== undefined ? overview.target_stats.max.toFixed(2) : 'N/A'}
+              </span>
             </div>
           </div>
         </div>
@@ -109,17 +118,17 @@ export default function DataUnderstandingTab({ overview }: DataUnderstandingTabP
                     <tr>
                       <th className="px-3 py-1.5">Feature</th>
                       <th className="px-3 py-1.5">Missing Count</th>
+                      <th className="px-3 py-1.5">Ratio</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(overview.missing_values)
-                      .filter(([, cnt]) => cnt > 0)
-                      .map(([feat, cnt]) => (
-                        <tr key={feat} className="border-t border-slate-800/60">
-                          <td className="px-3 py-1 text-slate-300">{feat}</td>
-                          <td className="px-3 py-1 font-mono text-amber-400">{cnt}</td>
-                        </tr>
-                      ))}
+                    {Object.entries(missingSummary).map(([feat, info]: [string, any]) => (
+                      <tr key={feat} className="border-t border-slate-800/60">
+                        <td className="px-3 py-1 text-slate-300 font-mono text-[11px]">{feat}</td>
+                        <td className="px-3 py-1 font-mono text-amber-400">{info.count}</td>
+                        <td className="px-3 py-1 font-mono text-slate-400">{(info.ratio * 100).toFixed(1)}%</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -131,7 +140,7 @@ export default function DataUnderstandingTab({ overview }: DataUnderstandingTabP
               </span>
               <p className="text-sm font-semibold text-emerald-400">Zero Missing Values Detected</p>
               <p className="text-xs text-slate-400 mt-1">
-                All {overview.total_rows.toLocaleString()} records across {overview.total_features} features are complete.
+                All {overview.n_rows.toLocaleString()} records across {overview.n_cols} columns are complete.
               </p>
             </div>
           )}
@@ -139,22 +148,24 @@ export default function DataUnderstandingTab({ overview }: DataUnderstandingTabP
       </div>
 
       {/* Correlation Chart */}
-      <div className="rounded-2xl border border-slate-800 bg-[#0f172a]/70 p-5 shadow-lg">
-        <div className="flex items-center gap-2 mb-4">
-          <BarChart3 className="h-4 w-4 text-indigo-400" />
-          <h4 className="text-sm font-semibold text-white">Target Correlation Analysis</h4>
+      {corrFeatures.length > 0 && (
+        <div className="rounded-2xl border border-slate-800 bg-[#0f172a]/70 p-5 shadow-lg">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 className="h-4 w-4 text-indigo-400" />
+            <h4 className="text-sm font-semibold text-white">Target Correlation Analysis</h4>
+          </div>
+          <PlotlyChart data={correlationPlotData} layout={correlationPlotLayout} />
         </div>
-        <PlotlyChart data={correlationPlotData} layout={correlationPlotLayout} />
-      </div>
+      )}
 
       {/* Feature Breakdown Lists */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="glass-card rounded-2xl p-5">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-indigo-400 mb-3">
-            Numeric Features ({overview.numeric_features.length})
+            Numeric Features ({overview.numeric_columns.length})
           </h4>
           <div className="flex flex-wrap gap-1.5">
-            {overview.numeric_features.map((feat) => (
+            {overview.numeric_columns.map((feat) => (
               <span
                 key={feat}
                 className="rounded-lg border border-slate-700 bg-slate-800/60 px-2.5 py-1 text-[11px] font-mono text-slate-300"
@@ -167,11 +178,11 @@ export default function DataUnderstandingTab({ overview }: DataUnderstandingTabP
 
         <div className="glass-card rounded-2xl p-5">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-purple-400 mb-3">
-            Categorical Features ({overview.categorical_features.length})
+            Categorical Features ({overview.categorical_columns.length})
           </h4>
           <div className="flex flex-wrap gap-1.5">
-            {overview.categorical_features.length > 0 ? (
-              overview.categorical_features.map((feat) => (
+            {overview.categorical_columns.length > 0 ? (
+              overview.categorical_columns.map((feat) => (
                 <span
                   key={feat}
                   className="rounded-lg border border-purple-900/40 bg-purple-950/20 px-2.5 py-1 text-[11px] font-mono text-purple-300"

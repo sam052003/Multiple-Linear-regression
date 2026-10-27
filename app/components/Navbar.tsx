@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Database, GitBranch, Github, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Database, Github, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
 import { DatasetItem } from '../types/api';
 
 interface NavbarProps {
@@ -62,7 +62,7 @@ export default function Navbar({
                 <option value="student_performance" className="bg-slate-900 text-slate-200">
                   Student Performance (Primary Research, 19 Features)
                 </option>
-                <option value="flood_prediction" className="bg-slate-900 text-slate-200">
+                <option value="flood_probability" className="bg-slate-900 text-slate-200">
                   Flood Probability (Synthetic Big Data, 20 Features)
                 </option>
               </optgroup>

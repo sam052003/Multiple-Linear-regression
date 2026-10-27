@@ -6,7 +6,6 @@ import {
   Sliders,
   Play,
   CheckCircle2,
-  Cpu,
   Layers,
   ArrowRight,
 } from 'lucide-react';
@@ -37,7 +36,13 @@ export default function DataPreparationTab({
     setIsLoading(true);
     setError(null);
     try {
-      const res = await trainBaselineModel(overview.dataset_id, overview.target_column, testSize, randomState);
+      const res = await trainBaselineModel(
+        overview.id,
+        overview.target_column,
+        testSize,
+        randomState,
+        overview.custom_data
+      );
       onTrainComplete(res);
     } catch (err: any) {
       setError(err.message || 'Baseline training failed');
@@ -46,8 +51,8 @@ export default function DataPreparationTab({
     }
   };
 
-  const trainSamples = Math.round(overview.total_rows * (1 - testSize));
-  const testSamples = overview.total_rows - trainSamples;
+  const trainSamples = Math.round(overview.n_rows * (1 - testSize));
+  const testSamples = overview.n_rows - trainSamples;
 
   return (
     <div className="space-y-6">
@@ -188,15 +193,24 @@ export default function DataPreparationTab({
             <div className="glass-card rounded-xl p-3">
               <span className="text-[10px] text-slate-400 uppercase tracking-wider">Test R² Score</span>
               <p className="text-lg font-bold text-indigo-400 font-mono mt-1">
-                {(trainResult.test_metrics.R2 * 100).toFixed(2)}%
+                {trainResult.test_metrics?.R2 !== undefined
+                  ? `${(trainResult.test_metrics.R2 * 100).toFixed(2)}%`
+                  : 'N/A'}
               </p>
-              <span className="text-[10px] text-slate-500">Train: {(trainResult.train_metrics.R2 * 100).toFixed(2)}%</span>
+              <span className="text-[10px] text-slate-500">
+                Train:{' '}
+                {trainResult.train_metrics?.R2 !== undefined
+                  ? `${(trainResult.train_metrics.R2 * 100).toFixed(2)}%`
+                  : 'N/A'}
+              </span>
             </div>
 
             <div className="glass-card rounded-xl p-3">
               <span className="text-[10px] text-slate-400 uppercase tracking-wider">Adjusted R²</span>
               <p className="text-lg font-bold text-purple-400 font-mono mt-1">
-                {(trainResult.test_metrics.Adj_R2 * 100).toFixed(2)}%
+                {trainResult.test_metrics?.Adj_R2 !== undefined && trainResult.test_metrics.Adj_R2 !== null
+                  ? `${(trainResult.test_metrics.Adj_R2 * 100).toFixed(2)}%`
+                  : 'N/A'}
               </p>
               <span className="text-[10px] text-slate-500">Penalizes extra features</span>
             </div>
@@ -204,7 +218,9 @@ export default function DataPreparationTab({
             <div className="glass-card rounded-xl p-3">
               <span className="text-[10px] text-slate-400 uppercase tracking-wider">Test RMSE</span>
               <p className="text-lg font-bold text-pink-400 font-mono mt-1">
-                {trainResult.test_metrics.RMSE.toFixed(3)}
+                {trainResult.test_metrics?.RMSE !== undefined
+                  ? trainResult.test_metrics.RMSE.toFixed(3)
+                  : 'N/A'}
               </p>
               <span className="text-[10px] text-slate-500">Target scale error</span>
             </div>
@@ -212,7 +228,7 @@ export default function DataPreparationTab({
             <div className="glass-card rounded-xl p-3">
               <span className="text-[10px] text-slate-400 uppercase tracking-wider">Encoded Features</span>
               <p className="text-lg font-bold text-slate-200 font-mono mt-1">
-                {trainResult.n_features}
+                {trainResult.encoded_feature_names?.length || trainResult.n_features || 0}
               </p>
               <span className="text-[10px] text-slate-500">After One-Hot Encoding</span>
             </div>
@@ -220,29 +236,32 @@ export default function DataPreparationTab({
 
           {/* Top Coefficients Table */}
           <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-            <h5 className="text-xs font-semibold text-slate-300 mb-2">Model Intercept: {trainResult.intercept.toFixed(4)}</h5>
-            <div className="max-h-40 overflow-y-auto">
+            <h5 className="text-xs font-semibold text-slate-300 mb-2">
+              Model Intercept: {trainResult.intercept?.toFixed(4)}
+            </h5>
+            <div className="max-h-48 overflow-y-auto">
               <table className="w-full text-left text-xs text-slate-300">
-                <thead className="text-[10px] text-slate-500 uppercase bg-slate-950/40">
+                <thead className="text-[10px] text-slate-500 uppercase bg-slate-950/40 sticky top-0">
                   <tr>
                     <th className="px-3 py-1.5">Transformed Feature</th>
                     <th className="px-3 py-1.5">Regression Coefficient (Beta)</th>
+                    <th className="px-3 py-1.5">Abs Impact</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/40">
-                  {Object.entries(trainResult.coefficients)
-                    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
-                    .slice(0, 10)
-                    .map(([feat, coef]) => (
-                      <tr key={feat} className="hover:bg-slate-800/30">
-                        <td className="px-3 py-1 font-mono text-[11px] text-slate-300">{feat}</td>
-                        <td className="px-3 py-1 font-mono text-[11px]">
-                          <span className={coef >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                            {coef >= 0 ? `+${coef.toFixed(4)}` : coef.toFixed(4)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                  {trainResult.coefficients.slice(0, 15).map((item) => (
+                    <tr key={item.feature} className="hover:bg-slate-800/30">
+                      <td className="px-3 py-1 font-mono text-[11px] text-slate-300">{item.feature}</td>
+                      <td className="px-3 py-1 font-mono text-[11px]">
+                        <span className={item.coefficient >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                          {item.coefficient >= 0 ? `+${item.coefficient.toFixed(4)}` : item.coefficient.toFixed(4)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-1 font-mono text-[11px] text-slate-400">
+                        {item.abs_coefficient.toFixed(4)}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

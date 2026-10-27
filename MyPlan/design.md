@@ -737,6 +737,41 @@ FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamli
   8. 執行全套 pytest 測試，**30 passed, 0 failed**。
 - **驗收狀態**：遷移工程全數通過驗收，已在獨立分支 `migration/vercel` 準備交付。
 
+### 2026-10-27: Vercel Migration — Post-Migration API Integration Verification
+- **進度**：完成前後端 API 契約統一、自訂資料集端到端管線修復、Flood 特徵排除防護、報告端點對齊與完整整合測試。
+- **發現的問題**：
+  1. *Frontend/Backend API 契約差異*：`app/types/api.ts` 中的介面定義與 FastAPI `api/schemas.py` 存在多處不一致（如 `DatasetOverviewResponse` 缺少 `target_correlation`、`target_stats`、`custom_data`；`TrainResponse` 中的 `coefficients` 型別為物件陣列而非單純字典；`MethodComparisonItem` 欄位命名不符；`ReportTab` 試圖以 JSON 解析 Markdown 純文字等）。
+  2. *Custom Dataset 端點與路由不一致*：前端自訂資料集請求路由與後端實際端點路徑分歧；`POST /api/datasets/custom-url` 端點中遺漏 `import numpy as np` 導致名稱未定義異常；自訂資料集上傳後在後端無狀態環境下無法進行後續訓練、特徵選擇、評估與預測。
+  3. *Flood Prediction 的 id 欄位覆蓋問題*：當客戶端送出空的 `excluded_columns: []` 時，若採用預設 fallback 邏輯會誤將空列表覆蓋資料集預設排除規則，導致 Flood 的 `id` 欄位洩漏至特徵矩陣中。
+  4. *報告 API 與下載路徑不一致*：`/api/reports/markdown` 端點回傳純文字，前端 API Client 使用 `res.json()` 導致解析錯誤；前端請求 `/api/reports/download-results` 但後端僅有 `/download/{filename}`。
+  5. *Vercel 相依套件設定*：`api/requirements.txt` 遺漏 `matplotlib`，造成報告圖表生成模組在 Serverless 環境中可能缺少套件。
+- **修正內容**：
+  1. *前後端 API 契約 1:1 統一*：
+     - 重寫 `app/types/api.ts`，精確鏡像 FastAPI 所有 Pydantic 模型（包括 `MetricSet`, `DatasetOverviewResponse`, `CoefficientItem`, `TrainResponse`, `MethodComparisonItem`, `FeatureRankItem`, `FeatureSelectionResponse`, `EvaluationResponse`, `PredictResponse`）。
+     - 更新 `app/lib/api.ts`，修正 TypeScript 型別標註（如 `boolean` 修正），對齊參數格式，改以 `res.text()` 解析 Markdown 報告。
+     - 修正所有使用資料的 React 元件 (`OverviewTab`, `DataUnderstandingTab`, `DataPreparationTab`, `FeatureSelectionTab`, `EvaluationTab`, `PredictionTab`, `ReportTab`, `Navbar`, `CustomDatasetModal`, `page.tsx`)，徹底移除寬鬆型別與斷言。
+  2. *自訂資料集端到端支援與快取設計*：
+     - 在 `api/services/ml_service.py` 實作兼顧伺服器有狀態/無狀態之雙軌機制：後端記憶體快取 `_CUSTOM_DATASETS_CACHE` 與本機暫存檔 `tempfile`，同時支援 Request Payload 中直接附帶 `custom_data` 陣列，確保自訂資料集能在 Serverless 任意實例無狀態執行訓練、特徵選擇、評估與推論。
+     - 統一後端路由為 `POST /api/datasets/custom-url` 與 `POST /api/datasets/upload`，補齊 `import numpy as np`，並在前端 `CustomDatasetModal` 完整銜接。
+  3. *特徵排除規則防禦性合併*：
+     - 在 `MLService` 實作 `merge_excluded_columns(def_excluded, user_excluded)`，嚴格保證若使用者傳入空的 `excluded_columns: []`，系統依然強制排除資料集定義之關鍵排除欄位（如 Flood 的 `id`）。
+     - 同時支援 `flood_prediction` 與 `flood_probability` 別名映射。
+  4. *報告端點完善*：
+     - 新增 `GET /api/reports/download-results?type=metrics|features` 端點，若檔案尚未產生時自動觸發實驗產生腳本，支援下載 `student_predictions_intervals.csv` 與 `student_feature_selection_comparison.csv`。
+     - 更新 `ReportTab.tsx` 直接呈現 Markdown 報告文字。
+  5. *Vercel 部署相容性強化*：
+     - 更新 `vercel.json` 採用標準相容之 `/api/(.*)` rewrite。
+     - 完善 `api/requirements.txt`（包含 `matplotlib>=3.8.0`），確認無 Streamlit 等贅餘相依。
+- **測試結果**：
+  - 後端測試：`pytest` 全套件 **33 passed, 0 failed** (包含 13 個 API 整合測試，涵蓋健康檢查、所有資料集 overview、訓練、特徵選擇、評估、預測、報告、自訂 URL SSRF 阻擋、Flood id 欄位排除驗證、自訂 CSV 上傳/訓練/特徵選擇/評估/推論完整閉環、結果 CSV 下載)。
+  - 前端編譯：`npm run build` 成功完成，TypeScript 型別檢驗 100% 通過，靜態頁面生成 (4/4) 無任何錯誤或警告。
+- **尚未完成的事項**：
+  - 無。前後端整合修正全數通過驗收。
+- **部署準備狀態 (Deployment Readiness)**：
+  - **Ready for Vercel Preview Deployment**。
+  - 前端與後端整合無縫，可由 GitHub Push 觸發 Vercel Preview 部署進行雲端實際驗證。
+
+
 
 
 

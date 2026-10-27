@@ -4,7 +4,7 @@ Provides endpoints for retrieving final Markdown reports, metric CSVs, and PDF d
 """
 
 import os
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, PlainTextResponse
 
 from src.config import REPORTS_DIR, RESULTS_DIR
@@ -42,10 +42,36 @@ def download_pdf_report():
     )
 
 
+@router.get("/download-results")
+def download_results(type: str = Query("metrics", pattern="^(metrics|features)$")):
+    """Download generated CSV result files (e.g. metrics or feature selection rankings)."""
+    if type == "features":
+        filename = "student_feature_selection_comparison.csv"
+    else:
+        filename = "student_predictions_intervals.csv"
+
+    file_path = os.path.join(RESULTS_DIR, filename)
+    if not os.path.exists(file_path):
+        # Auto-run experiments script to produce results if missing
+        try:
+            from scripts.run_experiments import run_all_experiments
+            run_all_experiments()
+        except Exception:
+            pass
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail=f"結果檔案 {filename} 尚未產生")
+
+    return FileResponse(
+        file_path,
+        media_type="text/csv",
+        filename=filename,
+    )
+
+
 @router.get("/download/{filename}")
 def download_report_file(filename: str):
-    """Download generated CSV result files (e.g. student_feature_selection_comparison.csv)."""
-    # Security check: prevent path traversal
+    """Download specific generated result file by filename."""
     safe_name = os.path.basename(filename)
     file_path = os.path.join(RESULTS_DIR, safe_name)
 

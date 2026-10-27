@@ -4,6 +4,8 @@ Wraps core src/ modules to provide stateless, cacheable ML operations without St
 """
 
 from typing import Dict, Any, List, Optional, Tuple
+import os
+import tempfile
 import numpy as np
 import pandas as pd
 from functools import lru_cache
@@ -37,16 +39,45 @@ ID_TO_PROBLEM_MAP = {
     "50_startups": PROBLEM_50_STARTUPS,
     "student_performance": PROBLEM_STUDENT,
     "flood_probability": PROBLEM_FLOOD,
+    "flood_prediction": PROBLEM_FLOOD,  # Alias for backward compatibility
 }
 
 PROBLEM_TO_ID_MAP = {v: k for k, v in ID_TO_PROBLEM_MAP.items()}
 
 
 class MLService:
+    # Memory cache for custom uploaded/URL datasets
+    _CUSTOM_DATASETS_CACHE: Dict[str, pd.DataFrame] = {}
+
+    @classmethod
+    def store_custom_dataset(cls, dataset_id: str, df: pd.DataFrame) -> None:
+        """Store custom dataset in memory cache and disk tempfile."""
+        cls._CUSTOM_DATASETS_CACHE[dataset_id] = df
+        try:
+            temp_path = os.path.join(tempfile.gettempdir(), f"{dataset_id}.csv")
+            df.to_csv(temp_path, index=False)
+        except Exception:
+            pass
+
+    @classmethod
+    def merge_excluded_columns(cls, def_excluded: List[str], excluded_columns: Optional[List[str]]) -> List[str]:
+        """
+        Merge default excluded columns (like 'id' for Flood) with user-provided excluded columns.
+        Prevents an empty list [] from accidentally un-excluding default excluded columns.
+        """
+        merged = list(def_excluded)
+        if excluded_columns:
+            for col in excluded_columns:
+                if col not in merged:
+                    merged.append(col)
+        return merged
+
     @staticmethod
     def get_supported_datasets() -> List[Dict[str, Any]]:
         datasets = []
-        for prob_id, prob_name in ID_TO_PROBLEM_MAP.items():
+        canonical_ids = ["50_startups", "student_performance", "flood_probability"]
+        for prob_id in canonical_ids:
+            prob_name = ID_TO_PROBLEM_MAP[prob_id]
             meta = PROBLEM_METADATA[prob_name]
             datasets.append({
                 "id": prob_id,
@@ -62,28 +93,60 @@ class MLService:
             })
         return datasets
 
-    @staticmethod
-    def resolve_dataset(dataset_id: str, custom_data: Optional[List[Dict[str, Any]]] = None) -> Tuple[pd.DataFrame, str, List[str]]:
+    @classmethod
+    def resolve_dataset(
+        cls,
+        dataset_id: str,
+        custom_data: Optional[List[Dict[str, Any]]] = None,
+        target_column: Optional[str] = None,
+    ) -> Tuple[pd.DataFrame, str, List[str]]:
         """
         Retrieve DataFrame, default target, and default excluded columns.
+        Prioritizes:
+        1. custom_data passed in request body
+        2. in-memory cache _CUSTOM_DATASETS_CACHE
+        3. disk cache tempfile
+        4. built-in datasets
         """
+        # 1. custom_data from request body
         if custom_data is not None and len(custom_data) > 0:
             df = pd.DataFrame(custom_data)
-            target = df.columns[-1]
+            cls.store_custom_dataset(dataset_id, df)
+            target = target_column or df.columns[-1]
             excluded = [c for c in df.columns if c.lower() in ["id", "index", "unnamed: 0"] and c != target]
             return df, target, excluded
 
+        # 2. in-memory cache
+        if dataset_id in cls._CUSTOM_DATASETS_CACHE:
+            df = cls._CUSTOM_DATASETS_CACHE[dataset_id]
+            target = target_column or df.columns[-1]
+            excluded = [c for c in df.columns if c.lower() in ["id", "index", "unnamed: 0"] and c != target]
+            return df, target, excluded
+
+        # 3. disk tempfile cache
+        temp_path = os.path.join(tempfile.gettempdir(), f"{dataset_id}.csv")
+        if os.path.exists(temp_path):
+            try:
+                df = pd.read_csv(temp_path)
+                cls._CUSTOM_DATASETS_CACHE[dataset_id] = df
+                target = target_column or df.columns[-1]
+                excluded = [c for c in df.columns if c.lower() in ["id", "index", "unnamed: 0"] and c != target]
+                return df, target, excluded
+            except Exception:
+                pass
+
+        # 4. built-in datasets
         if dataset_id == "50_startups":
             df = load_50_startups()
             meta = PROBLEM_METADATA[PROBLEM_50_STARTUPS]
         elif dataset_id == "student_performance":
             df = load_student_performance()
             meta = PROBLEM_METADATA[PROBLEM_STUDENT]
-        elif dataset_id == "flood_probability":
+        elif dataset_id in ["flood_probability", "flood_prediction"]:
             df = load_flood_prediction(sample_size=30000, random_state=42)
             meta = PROBLEM_METADATA[PROBLEM_FLOOD]
         else:
-            raise ValueError(f"不支援的資料集 ID: {dataset_id}")
+            raise ValueError(f"不支援的資料集 ID 或自訂資料不存在: {dataset_id}")
 
         return df, meta["default_target"], meta["excluded_cols"]
 
@@ -95,9 +158,9 @@ class MLService:
         excluded_columns: Optional[List[str]] = None,
         custom_data: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
-        df, def_target, def_excluded = cls.resolve_dataset(dataset_id, custom_data)
+        df, def_target, def_excluded = cls.resolve_dataset(dataset_id, custom_data, target_column)
         target = target_column or def_target
-        excluded = excluded_columns if excluded_columns is not None else def_excluded
+        excluded = cls.merge_excluded_columns(def_excluded, excluded_columns)
 
         all_cols = list(df.columns)
         avail_features = [c for c in all_cols if c != target and c not in excluded]
@@ -119,7 +182,32 @@ class MLService:
                 "max": float(s["max"]),
             }
 
+        # Target statistics
+        target_stats = {}
+        if target in df.columns and pd.api.types.is_numeric_dtype(df[target]):
+            s_t = df[target].describe()
+            target_stats = {
+                "mean": float(s_t["mean"]),
+                "std": float(s_t["std"]) if not np.isnan(s_t["std"]) else 0.0,
+                "min": float(s_t["min"]),
+                "max": float(s_t["max"]),
+            }
+
+        # Pearson correlation with target for numeric columns
+        target_correlation = {}
+        if target in df.columns and pd.api.types.is_numeric_dtype(df[target]):
+            for c in quality["numeric_cols"]:
+                if c != target and c not in excluded:
+                    val = df[c].corr(df[target])
+                    if not np.isnan(val):
+                        target_correlation[c] = round(float(val), 4)
+
         preview = df.head(10).to_dict(orient="records")
+
+        # For custom datasets, provide full rows up to 2000 so frontend can retain in state
+        custom_payload = None
+        if dataset_id.startswith("custom_") or custom_data is not None:
+            custom_payload = df.head(2000).to_dict(orient="records")
 
         return {
             "id": dataset_id,
@@ -137,6 +225,9 @@ class MLService:
             "preview_head": preview,
             "quality_summary": quality,
             "descriptive_stats": num_stats,
+            "target_correlation": target_correlation,
+            "target_stats": target_stats,
+            "custom_data": custom_payload,
         }
 
     @classmethod
@@ -150,9 +241,9 @@ class MLService:
         scale_numeric: bool = True,
         custom_data: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
-        df, def_target, def_excluded = cls.resolve_dataset(dataset_id, custom_data)
+        df, def_target, def_excluded = cls.resolve_dataset(dataset_id, custom_data, target_column)
         target = target_column or def_target
-        excluded = excluded_columns if excluded_columns is not None else def_excluded
+        excluded = cls.merge_excluded_columns(def_excluded, excluded_columns)
 
         artifacts = prepare_dataset(
             df=df,
@@ -175,6 +266,17 @@ class MLService:
             for _, row in coef_table.iterrows()
         ]
 
+        # Evaluate model to get train_metrics and test_metrics
+        eval_res = evaluate_regression_model(
+            model=model_wrapper.estimator,
+            X_train=artifacts.X_train_proc,
+            y_train=artifacts.y_train,
+            X_test=artifacts.X_test_proc,
+            y_test=artifacts.y_test,
+            cv_folds=5,
+            random_state=random_state,
+        )
+
         return {
             "dataset_id": dataset_id,
             "model_type": model_wrapper.model_type,
@@ -184,6 +286,10 @@ class MLService:
             "n_train_samples": int(len(artifacts.X_train_proc)),
             "n_test_samples": int(len(artifacts.X_test_proc)),
             "encoded_feature_names": artifacts.feature_names_out,
+            "train_metrics": eval_res["train"],
+            "test_metrics": eval_res["test"],
+            "target_column": target,
+            "n_features": len(artifacts.feature_names_out),
         }
 
     @classmethod
@@ -199,9 +305,9 @@ class MLService:
         fast_mode: bool = True,
         custom_data: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
-        df, def_target, def_excluded = cls.resolve_dataset(dataset_id, custom_data)
+        df, def_target, def_excluded = cls.resolve_dataset(dataset_id, custom_data, target_column)
         target = target_column or def_target
-        excluded = excluded_columns if excluded_columns is not None else def_excluded
+        excluded = cls.merge_excluded_columns(def_excluded, excluded_columns)
 
         artifacts = prepare_dataset(
             df=df,
@@ -212,12 +318,15 @@ class MLService:
             scale_numeric=True,
         )
 
+        # Ensure k does not exceed available features
+        actual_k = min(k_features, max(1, len(artifacts.feature_names_out) - 1))
+
         summary_df, results_map, _ = run_feature_selection_comparison(
             X_train=artifacts.X_train_proc,
             y_train=artifacts.y_train,
             X_test=artifacts.X_test_proc,
             y_test=artifacts.y_test,
-            k=k_features,
+            k=actual_k,
             cv_folds=cv_folds,
             random_state=random_state,
             fast_mode=fast_mode,
@@ -257,7 +366,7 @@ class MLService:
 
         return {
             "dataset_id": dataset_id,
-            "k": k_features,
+            "k": actual_k,
             "best_method": best_method,
             "comparison_table": comp_items,
             "method_rankings": rankings_dict,
@@ -275,9 +384,9 @@ class MLService:
         cv_folds: int = 5,
         custom_data: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
-        df, def_target, def_excluded = cls.resolve_dataset(dataset_id, custom_data)
+        df, def_target, def_excluded = cls.resolve_dataset(dataset_id, custom_data, target_column)
         target = target_column or def_target
-        excluded = excluded_columns if excluded_columns is not None else def_excluded
+        excluded = cls.merge_excluded_columns(def_excluded, excluded_columns)
 
         artifacts = prepare_dataset(
             df=df,
@@ -328,7 +437,7 @@ class MLService:
         ]
 
         # 95% PI sample sorted by predicted value
-        sort_idx = np.argsort(y_pred)[:50]
+        sort_idx = np.argsort(y_pred)[:60]
         pi_sample = []
         for i in sort_idx:
             pi_sample.append({
@@ -380,9 +489,9 @@ class MLService:
         random_state: int = 42,
         custom_data: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
-        df, def_target, def_excluded = cls.resolve_dataset(dataset_id, custom_data)
+        df, def_target, def_excluded = cls.resolve_dataset(dataset_id, custom_data, target_column)
         target = target_column or def_target
-        excluded = excluded_columns if excluded_columns is not None else def_excluded
+        excluded = cls.merge_excluded_columns(def_excluded, excluded_columns)
 
         artifacts = prepare_dataset(
             df=df,

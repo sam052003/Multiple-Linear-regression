@@ -4,27 +4,25 @@ import React, { useState } from 'react';
 import {
   Sparkles,
   Trophy,
-  Cpu,
   Zap,
   CheckCircle2,
   Clock,
   ArrowRight,
   Filter,
-  BarChart3,
 } from 'lucide-react';
 import {
   DatasetOverviewResponse,
-  FeatureSelectionComparisonResponse,
-  FeatureSelectionMethodResult,
+  FeatureSelectionResponse,
+  MethodComparisonItem,
 } from '../../types/api';
 import { runFeatureSelection } from '../../lib/api';
 import PlotlyChart from '../PlotlyChart';
 
 interface FeatureSelectionTabProps {
   overview: DatasetOverviewResponse | null;
-  fsResult: FeatureSelectionComparisonResponse | null;
-  onFsComplete: (result: FeatureSelectionComparisonResponse) => void;
-  onSelectMethodForEval: (method: FeatureSelectionMethodResult) => void;
+  fsResult: FeatureSelectionResponse | null;
+  onFsComplete: (result: FeatureSelectionResponse) => void;
+  onSelectMethodForEval: (method: MethodComparisonItem) => void;
   onNavigateToTab: (tab: string) => void;
 }
 
@@ -47,10 +45,16 @@ export default function FeatureSelectionTab({
     setIsLoading(true);
     setError(null);
     try {
-      const res = await runFeatureSelection(overview.dataset_id, overview.target_column, kFeatures, fastMode);
+      const res = await runFeatureSelection(
+        overview.id,
+        overview.target_column,
+        kFeatures,
+        fastMode,
+        overview.custom_data
+      );
       onFsComplete(res);
-      if (res.results.length > 0) {
-        setActiveMethodDetail(res.results[0].method_name);
+      if (res.comparison_table.length > 0) {
+        setActiveMethodDetail(res.comparison_table[0].method);
       }
     } catch (err: any) {
       setError(err.message || 'Feature selection computation failed');
@@ -60,9 +64,9 @@ export default function FeatureSelectionTab({
   };
 
   // Prepare plot data for comparing R2 and RMSE across methods
-  const methods = fsResult?.results.map((r) => r.method_name) || [];
-  const r2Scores = fsResult?.results.map((r) => r.r2) || [];
-  const cvR2Scores = fsResult?.results.map((r) => r.cv_r2_mean) || [];
+  const methods = fsResult?.comparison_table.map((r) => r.method) || [];
+  const r2Scores = fsResult?.comparison_table.map((r) => r.r2) || [];
+  const cvR2Scores = fsResult?.comparison_table.map((r) => r.cv_r2_mean || 0) || [];
 
   const comparisonPlotData = [
     {
@@ -90,7 +94,9 @@ export default function FeatureSelectionTab({
     legend: { orientation: 'h', y: 1.15, x: 0.1 },
   };
 
-  const selectedResult = fsResult?.results.find((r) => r.method_name === activeMethodDetail) || fsResult?.results[0];
+  const selectedResult =
+    fsResult?.comparison_table.find((r) => r.method === activeMethodDetail) ||
+    fsResult?.comparison_table[0];
 
   return (
     <div className="space-y-6">
@@ -117,7 +123,7 @@ export default function FeatureSelectionTab({
                 <input
                   type="range"
                   min="2"
-                  max={Math.min(10, Math.max(3, overview.total_features - 1))}
+                  max={Math.min(10, Math.max(3, overview.available_features.length - 1))}
                   value={kFeatures}
                   onChange={(e) => setKFeatures(parseInt(e.target.value))}
                   className="accent-indigo-500 cursor-pointer"
@@ -196,9 +202,9 @@ export default function FeatureSelectionTab({
                     onSelectMethodForEval(selectedResult);
                     onNavigateToTab('evaluation');
                   }}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-semibold text-slate-950 shadow-lg shadow-amber-500/30 hover:bg-amber-400 transition-all"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-xs font-semibold text-slate-950 shadow-lg shadow-amber-500/30 hover:bg-amber-400 transition-all cursor-pointer"
                 >
-                  <span>Evaluate {selectedResult.method_name}</span>
+                  <span>Evaluate {selectedResult.method}</span>
                   <ArrowRight className="h-4 w-4" />
                 </button>
               )}
@@ -225,25 +231,25 @@ export default function FeatureSelectionTab({
                 <thead className="border-b border-slate-800 bg-slate-900/60 text-slate-400 uppercase text-[10px]">
                   <tr>
                     <th className="px-4 py-3">Method Name</th>
-                    <th className="px-4 py-3">Selected Features</th>
+                    <th className="px-4 py-3">Features Selected</th>
                     <th className="px-4 py-3">Test R²</th>
                     <th className="px-4 py-3">Adjusted R²</th>
                     <th className="px-4 py-3">RMSE</th>
                     <th className="px-4 py-3">MAE</th>
                     <th className="px-4 py-3">5-Fold CV R²</th>
-                    <th className="px-4 py-3">Computation Time</th>
+                    <th className="px-4 py-3">Duration</th>
                     <th className="px-4 py-3 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {fsResult.results.map((res) => {
-                    const isBest = res.method_name === fsResult.best_method;
-                    const isSelected = res.method_name === activeMethodDetail;
+                  {fsResult.comparison_table.map((res) => {
+                    const isBest = res.method === fsResult.best_method;
+                    const isSelected = res.method === activeMethodDetail;
 
                     return (
                       <tr
-                        key={res.method_name}
-                        onClick={() => setActiveMethodDetail(res.method_name)}
+                        key={res.method}
+                        onClick={() => setActiveMethodDetail(res.method)}
                         className={`cursor-pointer transition-colors ${
                           isSelected
                             ? 'bg-indigo-950/40 border-l-2 border-indigo-500'
@@ -252,16 +258,18 @@ export default function FeatureSelectionTab({
                       >
                         <td className="px-4 py-3 font-semibold text-white flex items-center gap-2">
                           {isBest && <Trophy className="h-3.5 w-3.5 text-amber-400 shrink-0" />}
-                          <span>{res.method_name}</span>
+                          <span>{res.method}</span>
                         </td>
                         <td className="px-4 py-3 font-mono text-[11px] text-slate-300">
-                          {res.num_selected} features
+                          {res.features} features
                         </td>
                         <td className="px-4 py-3 font-mono font-semibold text-indigo-400">
                           {(res.r2 * 100).toFixed(2)}%
                         </td>
                         <td className="px-4 py-3 font-mono text-purple-400">
-                          {(res.adj_r2 * 100).toFixed(2)}%
+                          {res.adj_r2 !== null && res.adj_r2 !== undefined
+                            ? `${(res.adj_r2 * 100).toFixed(2)}%`
+                            : 'N/A'}
                         </td>
                         <td className="px-4 py-3 font-mono text-pink-400">
                           {res.rmse.toFixed(3)}
@@ -270,11 +278,13 @@ export default function FeatureSelectionTab({
                           {res.mae.toFixed(3)}
                         </td>
                         <td className="px-4 py-3 font-mono text-emerald-400">
-                          {(res.cv_r2_mean * 100).toFixed(2)}% ± {(res.cv_r2_std * 100).toFixed(2)}%
+                          {res.cv_r2_mean !== null && res.cv_r2_mean !== undefined
+                            ? `${(res.cv_r2_mean * 100).toFixed(2)}%`
+                            : 'N/A'}
                         </td>
                         <td className="px-4 py-3 font-mono text-slate-400 flex items-center gap-1">
                           <Clock className="h-3 w-3 text-slate-500" />
-                          <span>{res.elapsed_sec.toFixed(3)}s</span>
+                          <span>{res.time_sec.toFixed(3)}s</span>
                         </td>
                         <td className="px-4 py-3 text-right">
                           <button
@@ -283,7 +293,7 @@ export default function FeatureSelectionTab({
                               onSelectMethodForEval(res);
                               onNavigateToTab('evaluation');
                             }}
-                            className="rounded-lg bg-indigo-600/20 border border-indigo-500/40 px-2.5 py-1 text-[11px] font-semibold text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all"
+                            className="rounded-lg bg-indigo-600/20 border border-indigo-500/40 px-2.5 py-1 text-[11px] font-semibold text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all cursor-pointer"
                           >
                             Select & Diagnose
                           </button>
@@ -301,7 +311,7 @@ export default function FeatureSelectionTab({
             <div className="glass-card rounded-2xl p-5">
               <h4 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                Selected Features in {selectedResult.method_name} ({selectedResult.num_selected})
+                Selected Features in {selectedResult.method} ({selectedResult.features})
               </h4>
               <div className="flex flex-wrap gap-2 mt-3">
                 {selectedResult.selected_features.map((feat) => (

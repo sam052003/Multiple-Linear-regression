@@ -19,9 +19,9 @@ export default function ReportTab() {
 
   useEffect(() => {
     fetchMarkdownReport()
-      .then((data) => {
-        setReportMarkdown(data.markdown);
-        setReportTitle(data.report_title);
+      .then((markdownText) => {
+        setReportMarkdown(markdownText);
+        setReportTitle('Multiple Linear Regression Analysis Final Report');
       })
       .catch((err) => {
         setReportMarkdown('Failed to load markdown report. Ensure backend is running.');

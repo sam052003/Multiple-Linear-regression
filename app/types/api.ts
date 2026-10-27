@@ -1,11 +1,18 @@
+/**
+ * TypeScript Interfaces strictly matching FastAPI Backend Pydantic Schemas.
+ */
+
 export interface DatasetItem {
   id: string;
-  name: string;
-  category: string;
+  title: string;
+  tag: string;
+  source: string;
+  default_target: string;
+  excluded_cols: string[];
+  expected_features: number;
+  is_formal_study: boolean;
   description: string;
-  rows: number;
-  features: number;
-  target: string;
+  limitations: string;
 }
 
 export interface MetricSet {
@@ -13,130 +20,123 @@ export interface MetricSet {
   MSE: number;
   RMSE: number;
   R2: number;
-  Adj_R2: number;
+  Adj_R2?: number | null;
+  n_samples: number;
+  n_features: number;
 }
 
 export interface DatasetOverviewResponse {
-  dataset_id: string;
-  name: string;
-  total_rows: number;
-  total_features: number;
+  id: string;
+  title: string;
+  n_rows: number;
+  n_cols: number;
+  columns: string[];
+  numeric_columns: string[];
+  categorical_columns: string[];
   target_column: string;
-  target_mean: number;
-  target_std: number;
-  target_min: number;
-  target_max: number;
-  numeric_features: string[];
-  categorical_features: string[];
-  missing_values: Record<string, number>;
-  correlation_with_target: Record<string, number>;
-  sample_head: Array<Record<string, any>>;
-  is_feature_count_valid: boolean;
-  feature_count_note: string;
+  excluded_columns: string[];
+  available_features: string[];
+  is_compliant_14_39: boolean;
+  compliance_message: string;
+  preview_head: Array<Record<string, any>>;
+  quality_summary: Record<string, any>;
+  descriptive_stats: Record<string, Record<string, number>>;
+  target_correlation: Record<string, number>;
+  target_stats: Record<string, number>;
+  custom_data?: Array<Record<string, any>> | null;
+}
+
+export interface CoefficientItem {
+  feature: string;
+  coefficient: number;
+  abs_coefficient: number;
 }
 
 export interface TrainResponse {
   dataset_id: string;
-  target_column: string;
-  test_size: number;
-  random_state: number;
-  train_metrics: MetricSet;
-  test_metrics: MetricSet;
-  coefficients: Record<string, number>;
+  model_type: string;
   intercept: number;
-  n_features: number;
+  coefficients: CoefficientItem[];
+  training_time_ms: number;
+  n_train_samples: number;
+  n_test_samples: number;
+  encoded_feature_names: string[];
+  train_metrics?: MetricSet | null;
+  test_metrics?: MetricSet | null;
+  target_column?: string | null;
+  n_features?: number | null;
 }
 
-export interface FeatureSelectionMethodResult {
-  method_name: string;
-  selected_features: string[];
-  num_selected: number;
+export interface MethodComparisonItem {
+  method: string;
+  features: number;
   r2: number;
-  adj_r2: number;
+  adj_r2?: number | null;
   rmse: number;
   mae: number;
-  cv_r2_mean: number;
-  cv_r2_std: number;
-  elapsed_sec: number;
+  mse: number;
+  train_r2: number;
+  cv_r2_mean?: number | null;
+  time_sec: number;
+  selected_features: string[];
 }
 
-export interface FeatureSelectionComparisonResponse {
+export interface FeatureRankItem {
+  feature: string;
+  rank: number;
+  score: number;
+  is_selected: boolean;
+}
+
+export interface FeatureSelectionResponse {
   dataset_id: string;
-  baseline_features_count: number;
+  k: number;
   best_method: string;
-  results: FeatureSelectionMethodResult[];
+  comparison_table: MethodComparisonItem[];
+  method_rankings: Record<string, FeatureRankItem[]>;
 }
 
-export interface PredictionIntervalsData {
-  y_true: number[];
-  y_pred: number[];
-  ci_lower: number[];
-  ci_upper: number[];
-  pi_lower: number[];
-  pi_upper: number[];
+export interface AssumptionDetail {
+  diagnostic: string;
+  method: string;
+  metric_name: string;
+  value: any;
+  interpretation: string;
+  limitations: string;
+  extra?: Record<string, any> | null;
 }
 
-export interface AssumptionDiagnostics {
-  linearity: {
-    status: string;
-    correlation_residuals_fitted: number;
-    interpretation: string;
-  };
-  independence: {
-    test_name: string;
-    statistic: number;
-    status: string;
-    interpretation: string;
-    note: string;
-  };
-  homoscedasticity: {
-    test_name: string;
-    statistic: number;
-    p_value: number;
-    status: string;
-    interpretation: string;
-  };
-  normality: {
-    test_name: string;
-    statistic: number;
-    p_value: number;
-    skewness: number;
-    kurtosis: number;
-    status: string;
-    interpretation: string;
-  };
-  multicollinearity: {
-    vif_table: Array<{ feature: string; vif: number }>;
-    max_vif: number;
-    status: string;
-    interpretation: string;
-  };
+export interface ActualVsPredictedPoint {
+  actual: number;
+  predicted: number;
+  residual: number;
+}
+
+export interface PredictionIntervalSamplePoint {
+  actual: number;
+  predicted: number;
+  mean_ci_lower: number;
+  mean_ci_upper: number;
+  obs_ci_lower: number;
+  obs_ci_upper: number;
 }
 
 export interface EvaluationResponse {
-  metrics: {
-    train: MetricSet;
-    test: MetricSet;
-  };
-  actual_vs_predicted: {
-    actual: number[];
-    predicted: number[];
-  };
-  residuals_analysis: {
-    residuals: number[];
-    fitted: number[];
-  };
-  prediction_intervals: PredictionIntervalsData;
-  assumption_diagnostics: AssumptionDiagnostics;
-  post_selection_warning: string;
+  train_metrics: MetricSet;
+  test_metrics: MetricSet;
+  cv_metrics: Record<string, any>;
+  actual_vs_predicted_sample: ActualVsPredictedPoint[];
+  prediction_intervals_sample: PredictionIntervalSamplePoint[];
+  assumptions: Record<string, AssumptionDetail>;
 }
 
-export interface PredictionResponse {
-  point_prediction: number;
-  ci_lower: number;
-  ci_upper: number;
-  pi_lower: number;
-  pi_upper: number;
-  confidence_level: number;
-  warning: string;
+export interface PredictResponse {
+  dataset_id: string;
+  target_name: string;
+  predicted_value: number;
+  ci_lower_95: number;
+  ci_upper_95: number;
+  pi_lower_95: number;
+  pi_upper_95: number;
+  input_features_summary: Record<string, any>;
 }

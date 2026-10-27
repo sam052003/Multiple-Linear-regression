@@ -4,8 +4,6 @@ import React, { useState } from 'react';
 import {
   CheckCircle2,
   AlertTriangle,
-  Activity,
-  Layers,
   ShieldAlert,
   Play,
   Info,
@@ -14,7 +12,7 @@ import {
 import {
   DatasetOverviewResponse,
   EvaluationResponse,
-  FeatureSelectionMethodResult,
+  MethodComparisonItem,
 } from '../../types/api';
 import { runEvaluation } from '../../lib/api';
 import PlotlyChart from '../PlotlyChart';
@@ -22,7 +20,7 @@ import PlotlyChart from '../PlotlyChart';
 interface EvaluationTabProps {
   overview: DatasetOverviewResponse | null;
   evalResult: EvaluationResponse | null;
-  selectedMethod: FeatureSelectionMethodResult | null;
+  selectedMethod: MethodComparisonItem | null;
   onEvalComplete: (result: EvaluationResponse) => void;
 }
 
@@ -43,9 +41,12 @@ export default function EvaluationTab({
     setError(null);
     try {
       const res = await runEvaluation(
-        overview.dataset_id,
+        overview.id,
         overview.target_column,
-        selectedMethod?.selected_features
+        selectedMethod?.selected_features,
+        0.2,
+        42,
+        overview.custom_data
       );
       onEvalComplete(res);
     } catch (err: any) {
@@ -56,25 +57,26 @@ export default function EvaluationTab({
   };
 
   // 1. Actual vs Predicted Plot
+  const actuals = evalResult?.actual_vs_predicted_sample.map((d) => d.actual) || [];
+  const preds = evalResult?.actual_vs_predicted_sample.map((d) => d.predicted) || [];
+  const residuals = evalResult?.actual_vs_predicted_sample.map((d) => d.residual) || [];
+
+  const minVal = actuals.length > 0 ? Math.min(...actuals) : 0;
+  const maxVal = actuals.length > 0 ? Math.max(...actuals) : 100;
+
   const actualVsPredPlotData = evalResult
     ? [
         {
-          x: evalResult.actual_vs_predicted.actual,
-          y: evalResult.actual_vs_predicted.predicted,
+          x: actuals,
+          y: preds,
           mode: 'markers',
           type: 'scatter',
           name: 'Observations',
           marker: { color: 'rgba(99, 102, 241, 0.7)', size: 6 },
         },
         {
-          x: [
-            Math.min(...evalResult.actual_vs_predicted.actual),
-            Math.max(...evalResult.actual_vs_predicted.actual),
-          ],
-          y: [
-            Math.min(...evalResult.actual_vs_predicted.actual),
-            Math.max(...evalResult.actual_vs_predicted.actual),
-          ],
+          x: [minVal, maxVal],
+          y: [minVal, maxVal],
           mode: 'lines',
           type: 'scatter',
           name: 'Ideal (y = x)',
@@ -91,23 +93,17 @@ export default function EvaluationTab({
   };
 
   // 2. 95% Confidence & Prediction Intervals Plot
-  // Sort by predicted values to create a smooth band plot
-  const piData = evalResult?.prediction_intervals;
+  const piSamples = evalResult?.prediction_intervals_sample || [];
   const piPlotData = (() => {
-    if (!piData || piData.y_pred.length === 0) return [];
+    if (piSamples.length === 0) return [];
 
-    // Take top 60 sorted samples for clear visualization
-    const indices = Array.from(Array(piData.y_pred.length).keys())
-      .sort((a, b) => piData.y_pred[a] - piData.y_pred[b])
-      .slice(0, 60);
-
-    const x = indices.map((_, i) => i + 1);
-    const yPred = indices.map((i) => piData.y_pred[i]);
-    const yTrue = indices.map((i) => piData.y_true[i]);
-    const piLow = indices.map((i) => piData.pi_lower[i]);
-    const piUp = indices.map((i) => piData.pi_upper[i]);
-    const ciLow = indices.map((i) => piData.ci_lower[i]);
-    const ciUp = indices.map((i) => piData.ci_upper[i]);
+    const x = piSamples.map((_, i) => i + 1);
+    const yPred = piSamples.map((d) => d.predicted);
+    const yTrue = piSamples.map((d) => d.actual);
+    const piLow = piSamples.map((d) => d.obs_ci_lower);
+    const piUp = piSamples.map((d) => d.obs_ci_upper);
+    const ciLow = piSamples.map((d) => d.mean_ci_lower);
+    const ciUp = piSamples.map((d) => d.mean_ci_upper);
 
     return [
       // 95% PI Upper & Lower Band
@@ -168,18 +164,15 @@ export default function EvaluationTab({
   const resPlotData = evalResult
     ? [
         {
-          x: evalResult.residuals_analysis.fitted,
-          y: evalResult.residuals_analysis.residuals,
+          x: preds,
+          y: residuals,
           mode: 'markers',
           type: 'scatter',
           name: 'Residuals',
           marker: { color: 'rgba(236, 72, 153, 0.7)', size: 5 },
         },
         {
-          x: [
-            Math.min(...evalResult.residuals_analysis.fitted),
-            Math.max(...evalResult.residuals_analysis.fitted),
-          ],
+          x: preds.length > 0 ? [Math.min(...preds), Math.max(...preds)] : [0, 1],
           y: [0, 0],
           mode: 'lines',
           name: 'Zero Residual',
@@ -195,7 +188,7 @@ export default function EvaluationTab({
     height: 380,
   };
 
-  const diag = evalResult?.assumption_diagnostics;
+  const assumptions = evalResult?.assumptions;
 
   return (
     <div className="space-y-6">
@@ -217,7 +210,7 @@ export default function EvaluationTab({
           <button
             onClick={handleRunEvaluation}
             disabled={isLoading}
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 text-xs font-semibold text-white shadow-lg shadow-indigo-600/30 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 shrink-0"
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 text-xs font-semibold text-white shadow-lg shadow-indigo-600/30 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 shrink-0 cursor-pointer"
           >
             {isLoading ? (
               <>
@@ -243,54 +236,61 @@ export default function EvaluationTab({
       {evalResult && (
         <div className="space-y-6">
           {/* Post Selection Inference Warning */}
-          {evalResult.post_selection_warning && (
-            <div className="flex items-start gap-3 rounded-2xl border border-indigo-500/30 bg-indigo-950/20 p-4 text-xs text-indigo-200">
-              <Info className="h-5 w-5 shrink-0 text-indigo-400 mt-0.5" />
-              <div>
-                <span className="font-semibold text-white">Post-Selection Inference Methodology Notice:</span>
-                <p className="mt-0.5 text-slate-300">{evalResult.post_selection_warning}</p>
-              </div>
+          <div className="flex items-start gap-3 rounded-2xl border border-indigo-500/30 bg-indigo-950/20 p-4 text-xs text-indigo-200">
+            <Info className="h-5 w-5 shrink-0 text-indigo-400 mt-0.5" />
+            <div>
+              <span className="font-semibold text-white">Post-Selection Inference Methodology Notice:</span>
+              <p className="mt-0.5 text-slate-300">
+                When evaluating models built on selected features, standard OLS confidence and prediction intervals are conditioned on the chosen feature subset. True confidence intervals post-selection may be wider due to model selection uncertainty.
+              </p>
             </div>
-          )}
+          </div>
 
           {/* Metric KPI Cards (Train vs Test) */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <div className="glass-card rounded-2xl p-4 text-center">
               <span className="text-[10px] uppercase tracking-wider text-slate-400">Test R²</span>
               <p className="text-2xl font-bold font-mono text-indigo-400 mt-1">
-                {(evalResult.metrics.test.R2 * 100).toFixed(2)}%
+                {(evalResult.test_metrics.R2 * 100).toFixed(2)}%
               </p>
-              <span className="text-[10px] text-slate-500">Train: {(evalResult.metrics.train.R2 * 100).toFixed(2)}%</span>
+              <span className="text-[10px] text-slate-500">Train: {(evalResult.train_metrics.R2 * 100).toFixed(2)}%</span>
             </div>
 
             <div className="glass-card rounded-2xl p-4 text-center">
               <span className="text-[10px] uppercase tracking-wider text-slate-400">Adjusted R²</span>
               <p className="text-2xl font-bold font-mono text-purple-400 mt-1">
-                {(evalResult.metrics.test.Adj_R2 * 100).toFixed(2)}%
+                {evalResult.test_metrics.Adj_R2 !== null && evalResult.test_metrics.Adj_R2 !== undefined
+                  ? `${(evalResult.test_metrics.Adj_R2 * 100).toFixed(2)}%`
+                  : 'N/A'}
               </p>
-              <span className="text-[10px] text-slate-500">Train: {(evalResult.metrics.train.Adj_R2 * 100).toFixed(2)}%</span>
+              <span className="text-[10px] text-slate-500">
+                Train:{' '}
+                {evalResult.train_metrics.Adj_R2 !== null && evalResult.train_metrics.Adj_R2 !== undefined
+                  ? `${(evalResult.train_metrics.Adj_R2 * 100).toFixed(2)}%`
+                  : 'N/A'}
+              </span>
             </div>
 
             <div className="glass-card rounded-2xl p-4 text-center">
               <span className="text-[10px] uppercase tracking-wider text-slate-400">Test RMSE</span>
               <p className="text-2xl font-bold font-mono text-pink-400 mt-1">
-                {evalResult.metrics.test.RMSE.toFixed(3)}
+                {evalResult.test_metrics.RMSE.toFixed(3)}
               </p>
-              <span className="text-[10px] text-slate-500">Train: {evalResult.metrics.train.RMSE.toFixed(3)}</span>
+              <span className="text-[10px] text-slate-500">Train: {evalResult.train_metrics.RMSE.toFixed(3)}</span>
             </div>
 
             <div className="glass-card rounded-2xl p-4 text-center">
               <span className="text-[10px] uppercase tracking-wider text-slate-400">Test MAE</span>
               <p className="text-2xl font-bold font-mono text-slate-200 mt-1">
-                {evalResult.metrics.test.MAE.toFixed(3)}
+                {evalResult.test_metrics.MAE.toFixed(3)}
               </p>
-              <span className="text-[10px] text-slate-500">Train: {evalResult.metrics.train.MAE.toFixed(3)}</span>
+              <span className="text-[10px] text-slate-500">Train: {evalResult.train_metrics.MAE.toFixed(3)}</span>
             </div>
 
             <div className="glass-card rounded-2xl p-4 text-center col-span-2 sm:col-span-1">
               <span className="text-[10px] uppercase tracking-wider text-slate-400">Test MSE</span>
               <p className="text-2xl font-bold font-mono text-emerald-400 mt-1">
-                {evalResult.metrics.test.MSE.toFixed(3)}
+                {evalResult.test_metrics.MSE.toFixed(3)}
               </p>
               <span className="text-[10px] text-slate-500">Squared error</span>
             </div>
@@ -319,7 +319,7 @@ export default function EvaluationTab({
           </div>
 
           {/* 5 Classical Assumptions Diagnostics Panel */}
-          {diag && (
+          {assumptions && (
             <div className="rounded-2xl border border-slate-800 bg-[#0f172a]/70 p-6 shadow-lg">
               <div className="flex items-center gap-2 mb-4">
                 <ShieldAlert className="h-5 w-5 text-indigo-400" />
@@ -338,7 +338,7 @@ export default function EvaluationTab({
                   <button
                     key={item.key}
                     onClick={() => setActiveDiagTab(item.key as any)}
-                    className={`rounded-lg py-2 text-xs font-semibold transition-all ${
+                    className={`rounded-lg py-2 text-xs font-semibold transition-all cursor-pointer ${
                       activeDiagTab === item.key
                         ? 'bg-indigo-600 text-white shadow'
                         : 'text-slate-400 hover:text-slate-200'
@@ -350,97 +350,84 @@ export default function EvaluationTab({
               </div>
 
               {/* Tab 1: Linearity */}
-              {activeDiagTab === 'linearity' && (
+              {activeDiagTab === 'linearity' && assumptions.linearity && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                    <span className="text-sm font-semibold text-white">Residuals vs. Fitted Orthogonality Check</span>
+                    <span className="text-sm font-semibold text-white">{assumptions.linearity.diagnostic}</span>
                     <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-400">
-                      {diag.linearity.status}
+                      Method: {assumptions.linearity.method}
                     </span>
                   </div>
                   <p className="text-xs text-slate-300">
-                    Correlation between Residuals and Fitted Values: <strong className="font-mono text-indigo-400">{diag.linearity.correlation_residuals_fitted?.toFixed(4)}</strong>
+                    {assumptions.linearity.metric_name}: <strong className="font-mono text-indigo-400">{String(assumptions.linearity.value)}</strong>
                   </p>
-                  <p className="text-xs text-slate-400">{diag.linearity.interpretation}</p>
+                  <p className="text-xs text-slate-400">{assumptions.linearity.interpretation}</p>
                 </div>
               )}
 
               {/* Tab 2: Independence */}
-              {activeDiagTab === 'independence' && (
+              {activeDiagTab === 'independence' && assumptions.independence && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                    <span className="text-sm font-semibold text-white">Durbin-Watson Test for Autocorrelation</span>
+                    <span className="text-sm font-semibold text-white">{assumptions.independence.diagnostic}</span>
                     <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-400">
-                      {diag.independence.status}
+                      Method: {assumptions.independence.method}
                     </span>
                   </div>
                   <p className="text-xs text-slate-300">
-                    Durbin-Watson Statistic (DW): <strong className="font-mono text-indigo-400">{diag.independence.statistic?.toFixed(3)}</strong> (Expected range: 1.5 ~ 2.5 for independence)
+                    {assumptions.independence.metric_name}: <strong className="font-mono text-indigo-400">{String(assumptions.independence.value)}</strong> (Expected range: 1.5 ~ 2.5 for independent errors)
                   </p>
-                  <p className="text-xs text-slate-400">{diag.independence.interpretation}</p>
+                  <p className="text-xs text-slate-400">{assumptions.independence.interpretation}</p>
                   <div className="rounded-xl border border-indigo-500/20 bg-indigo-950/20 p-3 text-xs text-indigo-300">
-                    <strong>Note:</strong> {diag.independence.note}
+                    <strong>Limitation Note:</strong> {assumptions.independence.limitations}
                   </div>
                 </div>
               )}
 
               {/* Tab 3: Homoscedasticity */}
-              {activeDiagTab === 'homoscedasticity' && (
+              {activeDiagTab === 'homoscedasticity' && assumptions.homoscedasticity && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                    <span className="text-sm font-semibold text-white">Breusch-Pagan Test for Constant Variance</span>
+                    <span className="text-sm font-semibold text-white">{assumptions.homoscedasticity.diagnostic}</span>
                     <span className="rounded-full bg-indigo-500/10 border border-indigo-500/30 px-3 py-1 text-xs font-semibold text-indigo-400">
-                      {diag.homoscedasticity.status}
+                      Method: {assumptions.homoscedasticity.method}
                     </span>
                   </div>
                   <p className="text-xs text-slate-300">
-                    LM Statistic: <strong className="font-mono text-slate-200">{diag.homoscedasticity.statistic?.toFixed(3)}</strong> | p-value: <strong className="font-mono text-purple-400">{diag.homoscedasticity.p_value?.toExponential(3)}</strong>
+                    LM Statistic: <strong className="font-mono text-slate-200">{String(assumptions.homoscedasticity.value)}</strong> | p-value: <strong className="font-mono text-purple-400">{assumptions.homoscedasticity.extra?.p_value !== undefined ? assumptions.homoscedasticity.extra.p_value.toExponential(3) : 'N/A'}</strong>
                   </p>
-                  <p className="text-xs text-slate-400">{diag.homoscedasticity.interpretation}</p>
+                  <p className="text-xs text-slate-400">{assumptions.homoscedasticity.interpretation}</p>
+                  <p className="text-[11px] text-slate-500 italic">{assumptions.homoscedasticity.limitations}</p>
                 </div>
               )}
 
               {/* Tab 4: Normality */}
-              {activeDiagTab === 'normality' && (
+              {activeDiagTab === 'normality' && assumptions.normality && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                    <span className="text-sm font-semibold text-white">Jarque-Bera Residual Normality Test</span>
+                    <span className="text-sm font-semibold text-white">{assumptions.normality.diagnostic}</span>
                     <span className="rounded-full bg-indigo-500/10 border border-indigo-500/30 px-3 py-1 text-xs font-semibold text-indigo-400">
-                      {diag.normality.status}
+                      Method: {assumptions.normality.method}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-slate-300">
-                    <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 block text-[10px]">JB Statistic</span>
-                      <strong className="font-mono">{diag.normality.statistic?.toFixed(2)}</strong>
-                    </div>
-                    <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 block text-[10px]">p-value</span>
-                      <strong className="font-mono">{diag.normality.p_value?.toExponential(2)}</strong>
-                    </div>
-                    <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 block text-[10px]">Skewness</span>
-                      <strong className="font-mono">{diag.normality.skewness?.toFixed(3)}</strong>
-                    </div>
-                    <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 block text-[10px]">Kurtosis</span>
-                      <strong className="font-mono">{diag.normality.kurtosis?.toFixed(3)}</strong>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-400">{diag.normality.interpretation}</p>
+                  <p className="text-xs text-slate-300">
+                    Statistic: <strong className="font-mono text-slate-200">{String(assumptions.normality.value)}</strong> | p-value: <strong className="font-mono text-purple-400">{assumptions.normality.extra?.p_value !== undefined ? assumptions.normality.extra.p_value.toExponential(3) : 'N/A'}</strong>
+                  </p>
+                  <p className="text-xs text-slate-400">{assumptions.normality.interpretation}</p>
+                  <p className="text-[11px] text-slate-500 italic">{assumptions.normality.limitations}</p>
                 </div>
               )}
 
               {/* Tab 5: Multicollinearity (VIF) */}
-              {activeDiagTab === 'vif' && (
+              {activeDiagTab === 'vif' && assumptions.multicollinearity && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                    <span className="text-sm font-semibold text-white">Variance Inflation Factor (VIF)</span>
+                    <span className="text-sm font-semibold text-white">{assumptions.multicollinearity.diagnostic}</span>
                     <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-400">
-                      Max VIF: {diag.multicollinearity.max_vif?.toFixed(2)}
+                      {assumptions.multicollinearity.metric_name}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400">{diag.multicollinearity.interpretation}</p>
+                  <p className="text-xs text-slate-400">{assumptions.multicollinearity.interpretation}</p>
                   <div className="max-h-56 overflow-y-auto rounded-xl border border-slate-800">
                     <table className="w-full text-left text-xs text-slate-300">
                       <thead className="bg-slate-900/80 text-[10px] uppercase text-slate-400 sticky top-0">
@@ -451,21 +438,25 @@ export default function EvaluationTab({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/60">
-                        {diag.multicollinearity.vif_table.map((row) => (
-                          <tr key={row.feature} className="hover:bg-slate-800/30">
-                            <td className="px-4 py-2 font-mono text-[11px] text-slate-200">{row.feature}</td>
-                            <td className="px-4 py-2 font-mono font-semibold text-indigo-400">{row.vif.toFixed(2)}</td>
-                            <td className="px-4 py-2">
-                              {row.vif < 5 ? (
-                                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">Low (&lt; 5)</span>
-                              ) : row.vif < 10 ? (
-                                <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">Moderate (&lt; 10)</span>
-                              ) : (
-                                <span className="text-[10px] text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">Severe (&gt; 10)</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
+                        {assumptions.multicollinearity.extra?.vif_table?.map((row: any) => {
+                          const feat = row.Feature || row.feature;
+                          const vifVal = parseFloat(row.VIF || row.vif || 0);
+                          return (
+                            <tr key={feat} className="hover:bg-slate-800/30">
+                              <td className="px-4 py-2 font-mono text-[11px] text-slate-200">{feat}</td>
+                              <td className="px-4 py-2 font-mono font-semibold text-indigo-400">{vifVal.toFixed(2)}</td>
+                              <td className="px-4 py-2">
+                                {vifVal < 5 ? (
+                                  <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">Low (&lt; 5)</span>
+                                ) : vifVal < 10 ? (
+                                  <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">Moderate (&lt; 10)</span>
+                                ) : (
+                                  <span className="text-[10px] text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">Severe (&gt; 10)</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

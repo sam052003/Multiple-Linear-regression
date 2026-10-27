@@ -9,7 +9,6 @@ import {
   Hash,
   Activity,
   ArrowRight,
-  ShieldAlert,
 } from 'lucide-react';
 import { DatasetOverviewResponse } from '../../types/api';
 
@@ -30,9 +29,9 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
     );
   }
 
-  const is50Startups = overview.dataset_id === '50_startups';
-  const isStudent = overview.dataset_id === 'student_performance';
-  const isFlood = overview.dataset_id === 'flood_prediction';
+  const is50Startups = overview.id === '50_startups';
+  const isStudent = overview.id === 'student_performance';
+  const isFlood = overview.id === 'flood_probability' || overview.id === 'flood_prediction';
 
   return (
     <div className="space-y-6">
@@ -55,7 +54,7 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
                 </span>
               )}
             </div>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight text-white">{overview.name}</h2>
+            <h2 className="mt-2 text-2xl font-bold tracking-tight text-white">{overview.title}</h2>
             <p className="mt-1 text-sm text-slate-400 max-w-2xl">
               {is50Startups &&
                 'Classic 50 Startups case study analyzing R&D, Administration, Marketing Spend and State location to predict corporate Profit.'}
@@ -86,7 +85,7 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
               <Hash className="h-4 w-4" />
             </div>
           </div>
-          <p className="mt-2 text-2xl font-bold text-white">{overview.total_rows.toLocaleString()}</p>
+          <p className="mt-2 text-2xl font-bold text-white">{overview.n_rows.toLocaleString()}</p>
           <span className="text-[11px] text-slate-500">Rows in dataset</span>
         </div>
 
@@ -97,9 +96,9 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
               <Layers className="h-4 w-4" />
             </div>
           </div>
-          <p className="mt-2 text-2xl font-bold text-white">{overview.total_features}</p>
+          <p className="mt-2 text-2xl font-bold text-white">{overview.available_features.length}</p>
           <span className="text-[11px] text-slate-500">
-            {overview.numeric_features.length} Numeric, {overview.categorical_features.length} Categorical
+            {overview.numeric_columns.length} Numeric, {overview.categorical_columns.length} Categorical
           </span>
         </div>
 
@@ -112,7 +111,8 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
           </div>
           <p className="mt-2 text-xl font-bold text-pink-400 truncate">{overview.target_column}</p>
           <span className="text-[11px] text-slate-500">
-            Mean: {overview.target_mean?.toFixed(2)} (Std: {overview.target_std?.toFixed(2)})
+            Mean: {overview.target_stats?.mean !== undefined ? overview.target_stats.mean.toFixed(2) : 'N/A'}{' '}
+            (Std: {overview.target_stats?.std !== undefined ? overview.target_stats.std.toFixed(2) : 'N/A'})
           </span>
         </div>
 
@@ -121,12 +121,12 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
             <span className="text-xs font-medium text-slate-400">Specification Check</span>
             <div
               className={`rounded-lg p-2 ${
-                overview.is_feature_count_valid
+                overview.is_compliant_14_39
                   ? 'bg-emerald-500/10 text-emerald-400'
                   : 'bg-amber-500/10 text-amber-400'
               }`}
             >
-              {overview.is_feature_count_valid ? (
+              {overview.is_compliant_14_39 ? (
                 <CheckCircle2 className="h-4 w-4" />
               ) : (
                 <AlertTriangle className="h-4 w-4" />
@@ -135,12 +135,12 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
           </div>
           <p
             className={`mt-2 text-sm font-bold ${
-              overview.is_feature_count_valid ? 'text-emerald-400' : 'text-amber-400'
+              overview.is_compliant_14_39 ? 'text-emerald-400' : 'text-amber-400'
             }`}
           >
-            {overview.is_feature_count_valid ? '14~39 Specs Met' : 'Teaching Case Note'}
+            {overview.is_compliant_14_39 ? '14~39 Specs Met' : 'Teaching Case Note'}
           </p>
-          <span className="text-[10px] text-slate-500 block leading-tight">{overview.feature_count_note}</span>
+          <span className="text-[10px] text-slate-500 block leading-tight">{overview.compliance_message}</span>
         </div>
       </div>
 
@@ -153,7 +153,7 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
             本資料集（50 Startups）為經典教學範例，僅有 4 個原始特徵與 50 筆資料，方便快速觀察數值與類別回歸行為。正式研究報告與 14~39 特徵規格請切換至
             <button
               onClick={() => onNavigateToTab('student_performance_trigger')}
-              className="ml-1 underline font-semibold text-indigo-300 hover:text-white"
+              className="ml-1 underline font-semibold text-indigo-300 hover:text-white cursor-pointer"
             >
               Student Performance Factors
             </button>
@@ -167,7 +167,7 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-indigo-400" />
-            <h3 className="text-sm font-semibold text-white">First 5 Sample Records</h3>
+            <h3 className="text-sm font-semibold text-white">First 10 Sample Records</h3>
           </div>
           <span className="text-xs text-slate-400">Previewing raw data</span>
         </div>
@@ -176,8 +176,8 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
           <table className="w-full text-left text-xs text-slate-300">
             <thead className="border-b border-slate-800 bg-slate-900/60 text-slate-400 uppercase text-[10px] tracking-wider">
               <tr>
-                {overview.sample_head.length > 0 &&
-                  Object.keys(overview.sample_head[0]).map((col) => (
+                {overview.preview_head.length > 0 &&
+                  Object.keys(overview.preview_head[0]).map((col) => (
                     <th
                       key={col}
                       className={`px-4 py-3 font-semibold ${
@@ -190,7 +190,7 @@ export default function OverviewTab({ overview, onNavigateToTab }: OverviewTabPr
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
-              {overview.sample_head.map((row, idx) => (
+              {overview.preview_head.map((row, idx) => (
                 <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
                   {Object.entries(row).map(([col, val]) => (
                     <td

@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 # -------------------- Health & Common --------------------
 class HealthResponse(BaseModel):
     status: str = "ok"
-    version: str = "1.0.0"
+    version: str = "2.0.0"
     message: str = "Multiple Linear Regression API is running"
 
 
@@ -48,12 +48,26 @@ class DatasetOverviewResponse(BaseModel):
     preview_head: List[Dict[str, Any]]
     quality_summary: Dict[str, Any]
     descriptive_stats: Dict[str, Dict[str, float]]
+    target_correlation: Dict[str, float] = Field(default_factory=dict)
+    target_stats: Dict[str, float] = Field(default_factory=dict)
+    custom_data: Optional[List[Dict[str, Any]]] = None
 
 
 class CustomDatasetUrlRequest(BaseModel):
     url: str
     target_column: Optional[str] = None
     excluded_columns: Optional[List[str]] = Field(default_factory=list)
+
+
+# -------------------- Metric Set --------------------
+class MetricSet(BaseModel):
+    MAE: float
+    MSE: float
+    RMSE: float
+    R2: float
+    Adj_R2: Optional[float] = None
+    n_samples: int
+    n_features: int
 
 
 # -------------------- Analysis & Training --------------------
@@ -82,6 +96,10 @@ class TrainResponse(BaseModel):
     n_train_samples: int
     n_test_samples: int
     encoded_feature_names: List[str]
+    train_metrics: Optional[MetricSet] = None
+    test_metrics: Optional[MetricSet] = None
+    target_column: Optional[str] = None
+    n_features: Optional[int] = None
 
 
 # -------------------- Feature Selection --------------------
@@ -101,12 +119,12 @@ class MethodComparisonItem(BaseModel):
     method: str
     features: int
     r2: float
-    adj_r2: Optional[float]
+    adj_r2: Optional[float] = None
     rmse: float
     mae: float
     mse: float
     train_r2: float
-    cv_r2_mean: Optional[float]
+    cv_r2_mean: Optional[float] = None
     time_sec: float
     selected_features: List[str]
 
@@ -138,16 +156,6 @@ class EvaluationRequest(BaseModel):
     custom_data: Optional[List[Dict[str, Any]]] = None
 
 
-class MetricSet(BaseModel):
-    MAE: float
-    MSE: float
-    RMSE: float
-    R2: float
-    Adj_R2: Optional[float]
-    n_samples: int
-    n_features: int
-
-
 class AssumptionDetail(BaseModel):
     diagnostic: str
     method: str
@@ -163,7 +171,7 @@ class EvaluationResponse(BaseModel):
     test_metrics: MetricSet
     cv_metrics: Dict[str, Any]
     actual_vs_predicted_sample: List[Dict[str, float]]  # [actual, predicted, residual]
-    prediction_intervals_sample: List[Dict[str, float]]  # [actual, pred, mean_ci_l, mean_ci_u, obs_pi_l, obs_pi_u]
+    prediction_intervals_sample: List[Dict[str, float]]  # [actual, predicted, mean_ci_lower, mean_ci_upper, obs_ci_lower, obs_ci_upper]
     assumptions: Dict[str, AssumptionDetail]
 
 

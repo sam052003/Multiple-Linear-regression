@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { X, Globe, Upload, ShieldCheck, AlertTriangle } from 'lucide-react';
-import { submitCustomDatasetUrl } from '../lib/api';
+import { submitCustomDatasetUrl, uploadCustomCsv } from '../lib/api';
 import { DatasetOverviewResponse } from '../types/api';
 
 interface CustomDatasetModalProps {
@@ -60,22 +60,8 @@ export default function CustomDatasetModal({
     setIsLoading(true);
     setError(null);
 
-    const formData = new FormData();
-    formData.append('file', file);
-    if (targetColumn) {
-      formData.append('target_column', targetColumn);
-    }
-
     try {
-      const res = await fetch('/api/datasets/custom', {
-        method: 'POST',
-        body: formData,
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(body.detail || 'Upload failed');
-      }
-      const overview = await res.json();
+      const overview = await uploadCustomCsv(file, targetColumn || undefined);
       onCustomLoaded(overview);
       onClose();
     } catch (err: any) {
@@ -198,7 +184,7 @@ export default function CustomDatasetModal({
               <span className="text-sm font-medium text-slate-200">
                 {isLoading ? 'Uploading & Processing...' : 'Click to select CSV file'}
               </span>
-              <span className="mt-1 text-xs text-slate-500">Max size: 4.5 MB (Vercel Limit)</span>
+              <span className="mt-1 text-xs text-slate-500">Max size: 4.5 MB (Vercel Serverless Function Limit)</span>
               <input
                 type="file"
                 accept=".csv"

@@ -15,8 +15,8 @@ import {
   DatasetItem,
   DatasetOverviewResponse,
   TrainResponse,
-  FeatureSelectionComparisonResponse,
-  FeatureSelectionMethodResult,
+  FeatureSelectionResponse,
+  MethodComparisonItem,
   EvaluationResponse,
 } from './types/api';
 import { fetchDatasets, fetchDatasetOverview, fetchHealth } from './lib/api';
@@ -37,9 +37,9 @@ export default function DashboardPage() {
 
   const [overview, setOverview] = useState<DatasetOverviewResponse | null>(null);
   const [trainResult, setTrainResult] = useState<TrainResponse | null>(null);
-  const [fsResult, setFsResult] = useState<FeatureSelectionComparisonResponse | null>(null);
+  const [fsResult, setFsResult] = useState<FeatureSelectionResponse | null>(null);
   const [evalResult, setEvalResult] = useState<EvaluationResponse | null>(null);
-  const [selectedMethod, setSelectedMethod] = useState<FeatureSelectionMethodResult | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<MethodComparisonItem | null>(null);
 
   const [isBackendHealthy, setIsBackendHealthy] = useState<boolean>(true);
   const [isCustomModalOpen, setIsCustomModalOpen] = useState<boolean>(false);
@@ -58,7 +58,7 @@ export default function DashboardPage() {
 
   // Fetch overview whenever selectedProblem changes
   useEffect(() => {
-    if (!selectedProblem || selectedProblem === 'custom') return;
+    if (!selectedProblem || selectedProblem.startsWith('custom_')) return;
     setIsLoadingOverview(true);
     // Clear dependent states to prevent state leakage between problems
     setTrainResult(null);
@@ -74,7 +74,7 @@ export default function DashboardPage() {
 
   const handleCustomLoaded = (customOverview: DatasetOverviewResponse) => {
     setOverview(customOverview);
-    setSelectedProblem(customOverview.dataset_id);
+    setSelectedProblem(customOverview.id);
     setTrainResult(null);
     setFsResult(null);
     setEvalResult(null);

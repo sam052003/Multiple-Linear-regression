@@ -2,15 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  Sparkles,
   Calculator,
   Download,
-  AlertCircle,
   TrendingUp,
   Scale,
   Sliders,
 } from 'lucide-react';
-import { DatasetOverviewResponse, PredictionResponse } from '../../types/api';
+import { DatasetOverviewResponse, PredictResponse } from '../../types/api';
 import { predictSingle } from '../../lib/api';
 
 interface PredictionTabProps {
@@ -19,17 +17,17 @@ interface PredictionTabProps {
 
 export default function PredictionTab({ overview }: PredictionTabProps) {
   const [formValues, setFormValues] = useState<Record<string, any>>({});
-  const [prediction, setPrediction] = useState<PredictionResponse | null>(null);
+  const [prediction, setPrediction] = useState<PredictResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize form values from sample head
+  // Initialize form values from preview head
   useEffect(() => {
-    if (overview && overview.sample_head && overview.sample_head.length > 0) {
-      const firstRow = overview.sample_head[0];
+    if (overview && overview.preview_head && overview.preview_head.length > 0) {
+      const firstRow = overview.preview_head[0];
       const initial: Record<string, any> = {};
-      [...overview.numeric_features, ...overview.categorical_features].forEach((col) => {
-        if (col !== overview.target_column) {
+      [...overview.numeric_columns, ...overview.categorical_columns].forEach((col) => {
+        if (col !== overview.target_column && !overview.excluded_columns.includes(col)) {
           initial[col] = firstRow[col] !== undefined ? firstRow[col] : 0;
         }
       });
@@ -52,7 +50,13 @@ export default function PredictionTab({ overview }: PredictionTabProps) {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await predictSingle(overview.dataset_id, formValues, overview.target_column);
+      const res = await predictSingle(
+        overview.id,
+        formValues,
+        overview.target_column,
+        undefined,
+        overview.custom_data
+      );
       setPrediction(res);
     } catch (err: any) {
       setError(err.message || 'Prediction failed');
@@ -71,11 +75,11 @@ export default function PredictionTab({ overview }: PredictionTabProps) {
       '95_PI_Upper',
     ]);
     const values = Object.values(formValues).concat([
-      prediction.point_prediction,
-      prediction.ci_lower,
-      prediction.ci_upper,
-      prediction.pi_lower,
-      prediction.pi_upper,
+      prediction.predicted_value,
+      prediction.ci_lower_95,
+      prediction.ci_upper_95,
+      prediction.pi_lower_95,
+      prediction.pi_upper_95,
     ]);
 
     const csvContent =
@@ -84,7 +88,7 @@ export default function PredictionTab({ overview }: PredictionTabProps) {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `prediction_${overview.dataset_id}.csv`);
+    link.setAttribute('download', `prediction_${overview.id}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -114,15 +118,15 @@ export default function PredictionTab({ overview }: PredictionTabProps) {
               Input Feature Parameters
             </h4>
             <span className="text-xs text-slate-400">
-              {overview.numeric_features.length} Numeric, {overview.categorical_features.length} Categorical
+              {overview.numeric_columns.length} Numeric, {overview.categorical_columns.length} Categorical
             </span>
           </div>
 
           <form onSubmit={handlePredict} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2">
               {/* Numeric Inputs */}
-              {overview.numeric_features
-                .filter((col) => col !== overview.target_column)
+              {overview.numeric_columns
+                .filter((col) => col !== overview.target_column && !overview.excluded_columns.includes(col))
                 .map((field) => (
                   <div key={field} className="glass-card rounded-xl p-3">
                     <label className="block text-xs font-mono font-medium text-slate-300 mb-1 truncate">
@@ -140,8 +144,8 @@ export default function PredictionTab({ overview }: PredictionTabProps) {
                 ))}
 
               {/* Categorical Inputs */}
-              {overview.categorical_features
-                .filter((col) => col !== overview.target_column)
+              {overview.categorical_columns
+                .filter((col) => col !== overview.target_column && !overview.excluded_columns.includes(col))
                 .map((field) => (
                   <div key={field} className="glass-card rounded-xl p-3">
                     <label className="block text-xs font-mono font-medium text-purple-300 mb-1 truncate">
@@ -168,7 +172,7 @@ export default function PredictionTab({ overview }: PredictionTabProps) {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 text-xs font-semibold text-white shadow-lg shadow-indigo-600/30 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50"
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-2.5 text-xs font-semibold text-white shadow-lg shadow-indigo-600/30 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 cursor-pointer"
               >
                 {isLoading ? (
                   <>
@@ -199,10 +203,10 @@ export default function PredictionTab({ overview }: PredictionTabProps) {
                 {/* Point Prediction */}
                 <div className="glass-card rounded-2xl p-4 text-center border-indigo-500/30 bg-indigo-950/20">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400">
-                    Predicted Point Value ({overview.target_column})
+                    Predicted Point Value ({prediction.target_name})
                   </span>
                   <p className="text-3xl font-extrabold font-mono text-white mt-1">
-                    {prediction.point_prediction.toFixed(3)}
+                    {prediction.predicted_value.toFixed(3)}
                   </p>
                 </div>
 
@@ -214,10 +218,10 @@ export default function PredictionTab({ overview }: PredictionTabProps) {
                       <span className="text-[10px] text-purple-400 font-mono">E(y|X)</span>
                     </div>
                     <p className="font-mono text-sm font-bold text-white">
-                      [{prediction.ci_lower.toFixed(3)}, {prediction.ci_upper.toFixed(3)}]
+                      [{prediction.ci_lower_95.toFixed(3)}, {prediction.ci_upper_95.toFixed(3)}]
                     </p>
                     <span className="text-[10px] text-slate-400 block mt-1">
-                      Width: {(prediction.ci_upper - prediction.ci_lower).toFixed(3)}
+                      Width: {(prediction.ci_upper_95 - prediction.ci_lower_95).toFixed(3)}
                     </span>
                   </div>
 
@@ -227,10 +231,10 @@ export default function PredictionTab({ overview }: PredictionTabProps) {
                       <span className="text-[10px] text-indigo-400 font-mono">y_new</span>
                     </div>
                     <p className="font-mono text-sm font-bold text-white">
-                      [{prediction.pi_lower.toFixed(3)}, {prediction.pi_upper.toFixed(3)}]
+                      [{prediction.pi_lower_95.toFixed(3)}, {prediction.pi_upper_95.toFixed(3)}]
                     </p>
                     <span className="text-[10px] text-slate-400 block mt-1">
-                      Width: {(prediction.pi_upper - prediction.pi_lower).toFixed(3)}
+                      Width: {(prediction.pi_upper_95 - prediction.pi_lower_95).toFixed(3)}
                     </span>
                   </div>
                 </div>
@@ -246,7 +250,7 @@ export default function PredictionTab({ overview }: PredictionTabProps) {
                 {/* Download Prediction CSV */}
                 <button
                   onClick={downloadPredictionCsv}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
                 >
                   <Download className="h-4 w-4" />
                   <span>Download Prediction Record (CSV)</span>
