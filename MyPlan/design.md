@@ -554,7 +554,188 @@ HW2-Multiple Linear regression/
   6. 產出 `docs/deployment.md` 雲端一鍵部署手冊與 `docs/methodology.md` 統計理論手冊。
   7. 產出系統截圖與資訊圖表指南 `assets/screenshots/README.md` 與 `reports/figures/crisp_dm_process.png`。
   8. 全套件 pytest 測試（20 項測試全數通過，100% Pass）。
-- **驗收狀態**：系統已就緒，準備交付使用者確認並執行 Git 提交。
+- **驗收狀態**：系統已就緒，已推送至 GitHub `main` 分支 (Commit: `e9ad7ab`)。
+
+---
+
+## 16. Vercel Migration Architecture (Vercel 遷移技術架構)
+
+### 16.1 Original Streamlit Architecture vs. New Next.js + FastAPI Architecture
+
+```
+[Original Architecture: Streamlit Monolith]
++--------------------------------------------------------------+
+| Streamlit Server & UI (Python Runtime)                       |
+|   - Streamlit Reactive Execution (Full script rerun)         |
+|   - Session State (st.session_state)                         |
+|   - Data Caching (st.cache_data)                             |
+|   - Matplotlib / Plotly Streamlit Wrappers                   |
+|   - Direct access to src/ (ML Pipeline, DataLoader, Stats)   |
++--------------------------------------------------------------+
+```
+
+```
+[New Architecture: Modern Decoupled Web Stack on Vercel]
++---------------------------------------------------------------+
+| Next.js App Router (Frontend - TypeScript / React)            |
+|   - UI Components: Tailwind CSS + Radix UI / shadcn/ui        |
+|   - Dynamic Visualizations: Plotly.js / react-plotly.js       |
+|   - State Management: React useState / SWR / TanStack Query   |
+|   - Responsive Layout & CRISP-DM Tabs                         |
++-------------------------------+-------------------------------+
+                                | HTTP JSON REST API
+                                v
++---------------------------------------------------------------+
+| FastAPI Backend (Serverless Python Functions on Vercel)       |
+|   - api/index.py (ASGI Application Entrypoint)                |
+|   - api/schemas.py (Pydantic v2 Type-Safe Contracts)         |
+|   - api/routers/ (datasets, analysis, predict, reports)       |
+|   - api/services/ml_service.py (Stateless ML Orchestration)   |
++-------------------------------+-------------------------------+
+                                | Pure Python In-Memory Call
+                                v
++---------------------------------------------------------------+
+| Python Machine Learning Core (100% Reused from src/)          |
+|   - src/data_loader.py (Decoupled with @lru_cache)            |
+|   - src/preprocessing.py (Leakage-free Scikit-learn Pipeline) |
+|   - src/feature_selection.py (5 FS Methods + Baseline)        |
+|   - src/modeling.py & src/evaluation.py                       |
+|   - src/prediction_intervals.py (Statsmodels OLS 95% CI/PI)   |
+|   - src/statistical_tests.py (5 Regression Diagnostics)       |
++---------------------------------------------------------------+
+```
+
+### 16.2 API Design & Contract Specification
+FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamlit 的內部狀態完全解耦：
+
+1. **System & Datasets**
+   - `GET /api/health`: 系統健康檢查與模組載入驗證。
+   - `GET /api/datasets`: 列出可用資料集（50 Startups, Student Performance, Flood Prediction）。
+   - `GET /api/datasets/{id}/overview`: 取得特定資料集之基本統計、行數、特徵數、連續型 Target 驗證、數值與類別特徵清單、相關係數矩陣。
+   - `POST /api/datasets/custom`: 支援安全 HTTPS 網址檢核 (SSRF 防護) 或 CSV 解析，驗證 14~39 特徵規格。
+
+2. **Machine Learning & Feature Selection**
+   - `POST /api/analysis/train`: 指定資料集、Target、測試集比例與亂數種子，擬合 Baseline 線性回歸，回傳權重係數、截距、訓練/測試指標。
+   - `POST /api/analysis/feature-selection`: 一鍵平行比較 5 種特徵選擇演算法（SelectKBest, RFE, SFS, Lasso, Permutation Importance），回傳特徵排名、最佳方法獎章與效能比較表。
+   - `POST /api/analysis/evaluation`: 計算殘差分佈、Actual vs. Predicted 散佈數據、Statsmodels OLS 95% 信賴區間與預測區間、五大統計假設檢定 (Linearity, DW, BP, Q-Q, VIF)。
+
+3. **Inference & Reporting**
+   - `POST /api/predict`: 接收單筆特徵 Dictionary，即時輸出 Point Prediction、95% CI、95% PI 及 Post-selection 警示。
+   - `GET /api/reports/markdown`: 取得最新綜合分析報告 Markdown 文字。
+   - `GET /api/reports/pdf`: 取得編譯之 ReportLab PDF 二進位檔案下載。
+   - `GET /api/reports/download-results`: 匯出指標與特徵選擇排名 CSV。
+
+### 16.3 Module Reuse Matrix (模組沿用與改寫矩陣)
+
+| 原模組 / 元件 | 遷移處置 | 說明 |
+|---|---|---|
+| `src/data_loader.py` | 100% 沿用 (已解耦) | 移除 `st.cache_data`，改以 `@functools.lru_cache` 保持記憶體效率 |
+| `src/data_validation.py` | 100% 沿用 | SSRF 安全防護、Target 數值驗證、特徵數規格檢驗完全通用 |
+| `src/preprocessing.py` | 100% 沿用 | Scikit-learn Pipeline 完全保留 |
+| `src/feature_selection.py` | 100% 沿用 | 5 大特徵選擇與 Fast Mode 邏輯完全保留 |
+| `src/modeling.py` & `src/evaluation.py` | 100% 沿用 | 指標計算公式 (MAE, MSE, RMSE, R², Adj R²) 完全保留 |
+| `src/prediction_intervals.py` | 100% 沿用 | Statsmodels OLS 95% PI/CI 統計推論完全保留 |
+| `src/statistical_tests.py` | 100% 沿用 | 5 大回歸假設統計檢定與殘差計算完全保留 |
+| `src/reporting.py` | 100% 沿用 | Markdown 與 PDF 產生器轉為 API 下載端點 |
+| `app.py` & `components/*.py` | 標記為 Legacy，改寫為 Next.js | 重新以 React / TypeScript / Tailwind CSS / Plotly.js 實作現代化 Dashboard |
+| `api/` (新建立) | 新增 | 提供 FastAPI 路由、Pydantic Schema 與 stateless 服務層 |
+
+### 16.4 Vercel Deployment Strategy & Performance Constraints
+1. **Serverless Function 執行時限與記憶體**：
+   - Vercel Hobby 方案 Serverless Function 執行上限為 10~15 秒，記憶體上限為 1024 MB。
+   - **Flood Dataset**: 嚴格採用固定種子之抽樣資料集 (30,000 筆)，避免百萬筆造成 Function 記憶體溢出。
+   - **Sequential Feature Selection (SFS)**: SFS 在 19 個特徵上進行多折交叉驗證計算耗時較長，API 預設限制 `max_features=5` 或啟用 `fast_mode` (在子採樣上挑選特徵)，確保在 10 秒內回應完畢。
+2. **Bundle Size 限制**：
+   - Vercel Serverless Function 解壓後總大小上限為 250 MB。
+   - 相依套件 (numpy, pandas, scikit-learn, statsmodels, scipy) 在 Vercel Python Runtime 下經編譯壓縮，符合大小預算。
+3. **CSV 上傳與 Request Body 限制**：
+   - Vercel Serverless Function 限制 Request Body 最大 4.5 MB。
+   - Custom Dataset 上傳嚴格限制在 4 MB 以內；超過限制之大檔案則建議透過公開 HTTPS 網址提供，並由後端安全下載解析。
+
+---
+
+## 17. Migration Roadmap (遷移路線圖)
+
+- [x] **Step 1: Current Project Audit** — 完整檢查 `src/`, `data/`, `tests/`，確認 20 個既有測試 100% 通過。
+- [x] **Step 2: Python Core Decoupling** — 解除 `src/data_loader.py` 對 `st.cache_data` 的依賴。
+- [x] **Step 3: FastAPI Backend Implementation** — 實作 `api/index.py`, `api/schemas.py`, `api/routers/`, `api/services/`。
+- [x] **Step 4: API Integration Tests** — 實作 `tests/test_api.py`，全數通過 10 項 API 整合測試（總測試數達到 30 項）。
+- [x] **Step 5: Next.js Dashboard Frontend** — 初始化 Next.js App Router (TypeScript, Tailwind CSS, Plotly.js, Lucide Icons)。
+- [x] **Step 6: Problem Selector & CRISP-DM Navigation** — 實作 50 Startups (預設)、Student Performance、Flood 與 Custom Dataset 切換。
+- [x] **Step 7: Feature Selection & Evaluation Visualizations** — 串接 5 大特徵選擇比較、指標卡片、Actual vs. Predicted、95% PI 視覺化圖表。
+- [x] **Step 8: Interactive Prediction & Assumption Diagnostics** — 實作動態表單、點估計與區間推論、5 大統計檢定面板。
+- [x] **Step 9: Vercel Compatibility Validation & Production Build** — 驗證 `vercel.json` 雙向重寫與 Next.js 靜態優化 (`npm run build` 通過)。
+- [x] **Step 10: Documentation & Delivery** — 更新 `README.md`、`docs/deployment.md` 與最終回歸驗證。
+
+---
+
+## 18. Architecture Decision Record (新增 ADR)
+
+### ADR-05: Migrating from Streamlit to Next.js + FastAPI for Vercel Deployment
+- **日期**：2026-10-27
+- **狀態**：Accepted / Completed
+- **決策背景**：
+  原系統使用 Streamlit 開發並預定部署於 Streamlit Community Cloud。然而為符合作業最終展示平台目標（Vercel 部署）、提升前端介面自由度、提供更流暢的現代化互動體驗（消除每次互動全頁重新執行的問題），決定將架構遷移至 **Next.js (App Router, TypeScript) + FastAPI (Python Serverless Function)**。
+- **保留與重用**：
+  1. 100% 保留 `src/` 核心機器學習、統計推論、資料驗證與特徵選擇演算法，確保同一份資料、相同參數與亂數種子下數值在浮點誤差內精確一致。
+  2. 保留原有的測試套件與所有 Kaggle 資料集樣本。
+- **改寫與解耦**：
+  1. 解除對 `st.session_state`、`st.cache_data` 及 Streamlit FileUploader 的耦合，建立獨立、無狀態的 FastAPI REST API。
+  2. 使用 Next.js App Router、Tailwind CSS、shadcn/ui 與 Plotly.js 重新實作全功能 Dashboard。
+- **Vercel 限制與技術取捨**：
+  1. *Function Execution Timeout*: Vercel Serverless Function 執行時間限制為 10~15 秒。因此對 SFS (循序特徵選擇) 提供 `fast_mode`，對大資料集預設子採樣。
+  2. *Payload Limit*: Request Body 限制為 4.5 MB，Custom CSV 上傳限制於安全大小內。
+  3. *Zero-cost Monorepo*: 前後端共存於同一個 GitHub Repository，透過 Vercel Serverless Python Function 原生支援無痛部署。
+- **遷移成果**：
+  Phase 1 完成後，FastAPI 測試套件 10 項與既有 20 項核心測試全數通過（30 passed, 0 failed）。Next.js Production Build 驗證成功。
+
+---
+
+## 19. Migration Development Log (遷移開發歷程紀錄)
+
+### 2026-10-27: Migration Phase 1 完成 — 架構解耦與 FastAPI 後端建立
+- **進度**：完成 Python 核心與 Streamlit 解耦、建置 FastAPI 端點與 API 整合測試。
+- **完成項目**：
+  1. 建立獨立 Git 分支 `migration/vercel`，保留 `main` 分支既有提交歷史。
+  2. 解耦 `src/data_loader.py`，改以 `@functools.lru_cache` 實作資料載入記憶體快取。
+  3. 安裝支援現代 Next.js 14 之 Node.js v20.18.0 LTS 執行環境。
+  4. 實作完整 FastAPI 後端 (`api/index.py`, `api/schemas.py`, `api/services/ml_service.py`)。
+  5. 實作四組專門 API Routers (`api/routers/datasets.py`, `api/routers/analysis.py`, `api/routers/predict.py`, `api/routers/reports.py`)。
+  6. 實作 API 整合測試套件 `tests/test_api.py`（共 10 個測試案例，涵蓋健康檢查、資料集載入、模型訓練、5 大特徵選擇、OLS 95% 預測區間、單筆推論、報告匯出及 SSRF 阻擋）。
+  7. 執行 pytest 全套件測試，**30 passed, 0 failed**（20 原有核心測試 + 10 API 測試）。
+- **驗收狀態**：Phase 1 成功完成。
+
+### 2026-10-27: Migration Phase 2 完成 — Next.js 14 現代化 Dashboard 建置
+- **進度**：建立基於 Next.js App Router、TypeScript、Tailwind CSS、Plotly.js 的現代化儀表板。
+- **完成項目**：
+  1. 建立前端相依套件庫 `package.json`、`tsconfig.json`、`tailwind.config.js`、`postcss.config.js`。
+  2. 建立型別定義 `app/types/api.ts` 與 API 客戶端 `app/lib/api.ts`。
+  3. 實作客戶端 Plotly 動態元件 `app/components/PlotlyChart.tsx`，避免 SSR 報錯並提供暗黑主題樣式。
+  4. 實作頂端導航與 Problem Selector `app/components/Navbar.tsx`（預設載入 50 Startups，支援切換 Student Performance 與 Flood）。
+  5. 實作自訂資料集安全對話框 `app/components/CustomDatasetModal.tsx`（支援 SSRF 防護 URL 載入與本機 CSV 上傳）。
+  6. 實作完整 CRISP-DM 六大階段分頁元件：
+     - `OverviewTab.tsx` (Stage 1: Business Understanding, KPI 卡片, 前 5 筆預覽)
+     - `DataUnderstandingTab.tsx` (Stage 2: EDA, Target 剖析, 相關係數柱狀圖, 資料品質報告)
+     - `DataPreparationTab.tsx` (Stage 3: 嚴格防資料洩漏 Pipeline, 訓練/測試比例調整, 基底模型擬合)
+     - `FeatureSelectionTab.tsx` (Stage 4: 5 大特徵選擇平行比較, 最佳方法獎章, 耗時統計, R² 比較圖)
+     - `EvaluationTab.tsx` (Stage 5: 評估指標卡片, Actual vs Predicted 圖, 95% 預測區間帶圖, 五大統計假設診斷面板)
+     - `PredictionTab.tsx` (Stage 6: 動態特徵輸入表單, 即時 FastAPI 推論, 95% CI vs PI 區間, CSV 匯出)
+     - `ReportTab.tsx` (Stage 6: Markdown 報告預覽, PDF 下載, 實驗指標 CSV 匯出)
+  7. 整合所有分頁與狀態管理至 `app/page.tsx`。
+- **驗收狀態**：Phase 2 成功完成。
+
+### 2026-10-27: Migration Phase 3 & 4 完成 — Vercel 相容性驗證與全專案文件交付
+- **進度**：建立 Vercel Monorepo 配置、驗證 Production Build、更新所有部署手冊與專案 README。
+- **完成項目**：
+  1. 建立 `vercel.json`，將 `/api/*` 路由導向 `api/index.py` Serverless Function。
+  2. 建立 `api/requirements.txt`，確保 Vercel Python Runtime 具備完整無贅套件相依性。
+  3. 更新根目錄 `requirements.txt`，加入 FastAPI、Uvicorn 與 python-multipart。
+  4. 執行 Next.js 生產環境編譯 `npm run build`，驗證 0 錯誤、0 警告，靜態頁面生成成功。
+  5. 重新檢驗五大資源限制對策（SFS Fast Mode, Flood 30k 抽樣, 4.5MB 上傳上限, SSRF 防護）。
+  6. 更新 `docs/deployment.md`，提供完整 Vercel 一鍵部署步驟與排錯指南。
+  7. 更新 `README.md`，加入 Next.js/FastAPI 徽章、全專案目錄樹與最新 30 項測試通過標籤。
+  8. 執行全套 pytest 測試，**30 passed, 0 failed**。
+- **驗收狀態**：遷移工程全數通過驗收，已在獨立分支 `migration/vercel` 準備交付。
 
 
 

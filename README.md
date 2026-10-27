@@ -2,20 +2,23 @@
 ### Interactive Regression Analysis with CRISP-DM and Feature Selection
 
 [![Python Version](https://img.shields.io/badge/Python-3.12%20%7C%203.14-blue.svg)](https://www.python.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.40+-FF4B4B.svg)](https://streamlit.io/)
-[![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-1.4+-F7931E.svg)](https://scikit-learn.org/)
-[![Tests](https://img.shields.io/badge/pytest-20%20passed-brightgreen.svg)](https://docs.pytest.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-14.2%20App%20Router-black.svg)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
+[![Deployment](https://img.shields.io/badge/Vercel-Production%20Ready-black.svg)](https://vercel.com/)
+[![Tests](https://img.shields.io/badge/pytest-30%20passed-brightgreen.svg)](https://docs.pytest.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 > **GitHub Repository**：[https://github.com/sam052003/Multiple-Linear-regression.git](https://github.com/sam052003/Multiple-Linear-regression.git)  
 > **核心設計文件 (Single Source of Truth)**：請參閱 [MyPlan/design.md](MyPlan/design.md)  
-> **雲端部署指南**：請參閱 [docs/deployment.md](docs/deployment.md)  
+> **Vercel 雲端部署指南**：請參閱 [docs/deployment.md](docs/deployment.md)  
 
 ---
 
 ## 📌 專案總覽 (Project Overview)
 
 本專案為大學「多元線性回歸 (Multiple Linear Regression, MLR)」課程作業，建立了一個遵循 **CRISP-DM (Cross-Industry Standard Process for Data Mining)** 完整生命週期的現代化互動式機器學習與統計分析 Web 應用程式。
+
+專案已完成從 Streamlit 至 **Next.js 14 (App Router, TypeScript, Tailwind CSS, Plotly.js) + FastAPI (Python Machine Learning Core)** 的全端架構遷移，支援直接於 **Vercel** 進行 Monorepo 一鍵部署。
 
 本系統不只是展示回歸模型的單一預測分數，而是引導使用者從問題理解、探索性資料分析 (EDA)、嚴格防資料洩漏的前處理 Pipeline、**5 種特徵選擇演算法深度比較**、Scikit-learn 線性回歸訓練、Statsmodels OLS **95% 預測區間 (Prediction Interval)** 推論、**回歸五大統計假設診斷**，到單筆樣本互動式預測與綜合成果匯出。
 
@@ -26,19 +29,19 @@
 ## 🌟 核心特色與加分功能 (Core & Bonus Features)
 
 ### 1. 三個內建回歸主題切換 (Bonus 1: Problem Selector)
-網站提供側邊欄下拉選單，可無縫切換三種不同規模與領域的 Regression Problems：
-- 🏢 **50 Startups — Profit Prediction**（**預設展示**）：經典入門教學案例，分析研發、行政、行銷支出與所在州別對淨利的影響。
+網站提供頂端下拉選單，可無縫切換三種不同規模與領域的 Regression Problems：
+- 🏢 **50 Startups — Profit Prediction**（**預設展示教學案例**）：經典入門教學案例，分析研發、行政、行銷支出與所在州別對淨利的影響。
 - 🎓 **Student Performance Factors — Exam Score Prediction**（**主要研究**）：Kaggle 真實教育數據，約 6,607 筆資料、**19 個原始輸入特徵**（精確符合 14~39 個特徵作業規格），Target 為連續數值 `Exam_Score`。
 - 🌊 **Flood Probability Prediction**（**第二研究**）：Kaggle Playground s4e5 合成資料集，20 個數值特徵，採用固定種子 (`seed=42`) 抽樣 30,000 筆快取，排除 `id` 欄位。
 
 ### 2. 自由自訂資料集支援 (Bonus 2: Custom Dataset)
 完整支援使用者載入任意回歸資料集：
-- 🌐 **安全 CSV URL 載入**：內建 SSRF 防護機制，強制 HTTPS、DNS 解析檢查、嚴格阻擋本機與內部私有 IP、檔案下載 20MB 上限與逾時保護。
-- 💻 **本機 CSV 上傳**：支援 UTF-8、UTF-8 BOM 與 Latin1 編碼自動解析。
-- 🎯 **自訂 Target 與特徵過濾**：使用者可自由指定 Target，自動辨識數值與類別特徵，排除 ID 欄位，並對非 14~39 規格給出友善警示。
+- 🌐 **安全 CSV URL 載入**：內建 SSRF 防護機制，強制 HTTPS、DNS 解析檢查、嚴格阻擋本機與內部私有 IP、檔案下載 4.5MB Vercel 限制與逾時保護。
+- 💻 **本機 CSV 上傳**：支援直接上傳本機 CSV 並自動進行資料型態判斷與前處理。
+- 🎯 **自訂 Target 與特徵過濾**：使用者可自由指定 Target，自動辨識數值與類別特徵，排除 ID 欄位，並對 14~39 特徵規格給出動態合規檢驗。
 
 ### 3. 五大特徵選擇演算法深度比較 (Feature Selection Suite)
-支援從全特徵 Baseline 到五大方法全面比較（固定在 Training Set 上擬合）：
+支援從全特徵 Baseline 到五大方法全面平行比較（固定在 Training Set 上擬合）：
 1. **Baseline**：保留全部前處理後特徵。
 2. **SelectKBest**：Filter 方法，以 `f_regression` F 檢定評分。
 3. **Recursive Feature Elimination (RFE)**：Wrapper 方法，以 `LinearRegression` 遞迴剃除權重最小特徵。
@@ -47,10 +50,10 @@
 6. **Permutation Importance**：Model-based 方法，於內部驗證集打亂特徵值評估泛化性能衰退量。
 
 ### 4. 95% 預測區間推論 (95% Prediction Interval)
-老師特別要求預測圖必須具備信賴區間或預測區間。本專案透過 **Statsmodels OLS** 完整實作：
-- **95% Confidence Interval for Mean (母體均值信賴區間)**：評估給定條件下平均期望值的落點。
-- **95% Prediction Interval for Observation (單一觀測值預測區間)**：評估新觀測值的落點，納入個體隨機誤差 $\sigma^2$，區間必定寬於 CI。
-- 揭露特徵選擇後之 Post-selection inference 統計限制。
+依作業要求完整呈現預測不確定性，透過 **Statsmodels OLS** 實作：
+- **95% Confidence Interval for Mean (母體均值信賴區間)**：評估給定條件下平均期望值的落點 $E(y|X)$。
+- **95% Prediction Interval for Observation (單一觀測值預測區間)**：評估新觀測值的落點，納入個體隨機誤差 $\sigma^2_\epsilon$，區間必定寬於 CI。
+- 揭露特徵選擇後之 Post-selection inference 統計限制與警示。
 
 ### 5. 多元線性回歸五大假設診斷 (Regression Diagnostics)
 - **線性性 (Linearity)**：殘差 vs. 擬合值散佈圖與零軸正交檢定。
@@ -85,15 +88,37 @@
 
 ```text
 HW2-Multiple Linear regression/
-├── app.py                            # Streamlit 應用程式入口
-├── requirements.txt                  # 相容依賴套件清單
-├── README.md                         # 專案說明文件
-├── .gitignore                        # Git 忽略清單
-├── MyPlan/
-│   └── design.md                     # 核心系統架構與設計文件 (Single Source of Truth)
-├── src/                              # 核心模組
+├── app/                              # Next.js 14 App Router (Frontend)
+│   ├── layout.tsx                    # 根佈局與深色主題設定
+│   ├── page.tsx                      # 儀表板主入口與狀態管理器
+│   ├── globals.css                   # Tailwind 指令與玻璃擬態樣式
+│   ├── types/api.ts                  # 前後端共用 TypeScript 型別
+│   ├── lib/api.ts                    # REST API 客戶端
+│   └── components/                   # React 現代化元件
+│       ├── Navbar.tsx                # 導航列與 Problem Selector
+│       ├── CustomDatasetModal.tsx    # 自訂資料集載入視窗 (SSRF 防護)
+│       ├── PlotlyChart.tsx           # Plotly.js 客戶端動態圖表
+│       └── tabs/                     # CRISP-DM 六大階段分頁
+│           ├── OverviewTab.tsx       # Stage 1: 商業理解與摘要
+│           ├── DataUnderstandingTab.tsx # Stage 2: EDA 與相關係數圖
+│           ├── DataPreparationTab.tsx   # Stage 3: 前處理管線與基底模型
+│           ├── FeatureSelectionTab.tsx  # Stage 4: 5 大特徵選擇與比較
+│           ├── EvaluationTab.tsx     # Stage 5: 95% PI 與假設診斷
+│           ├── PredictionTab.tsx     # Stage 6: 互動預測與單筆推論
+│           └── ReportTab.tsx         # Stage 6: 報告預覽與 PDF/CSV 下載
+├── api/                              # FastAPI Backend (Vercel Serverless)
+│   ├── index.py                      # ASGI 應用進入點
+│   ├── schemas.py                    # Pydantic v2 Request/Response Contracts
+│   ├── requirements.txt              # Vercel Serverless 專屬相依套件
+│   ├── services/ml_service.py        # 無狀態機器學習服務層
+│   └── routers/                      # REST API 路由
+│       ├── datasets.py               # 資料集概覽與自訂資料解析
+│       ├── analysis.py               # 模型訓練、特徵選擇與診斷
+│       ├── predict.py                # 單筆樣本 95% PI 推論
+│       └── reports.py                # 報告文字與 PDF 檔案串流
+├── src/                              # Python Machine Learning 核心演算法 (100% 沿用)
 │   ├── config.py                     # 全域常數與資料集詮釋資料
-│   ├── data_loader.py                # 資料讀取與快取 (@st.cache_data)
+│   ├── data_loader.py                # 資料讀取與記憶體快取 (@lru_cache)
 │   ├── data_validation.py            # SSRF 防護、格式驗證與資料品質報告
 │   ├── preprocessing.py              # ColumnTransformer 管線 (防資料洩漏)
 │   ├── feature_selection.py          # 5 大特徵選擇演算法與比較引擎
@@ -101,45 +126,19 @@ HW2-Multiple Linear regression/
 │   ├── evaluation.py                 # MAE, RMSE, R2, Adjusted R2 與 CV
 │   ├── statistical_tests.py          # 5 大回歸假設統計檢定與 VIF
 │   ├── prediction_intervals.py       # Statsmodels OLS 95% PI / CI 推論
-│   ├── visualization.py              # Plotly 互動式圖表生成
+│   ├── visualization.py              # 靜態論文圖表生成模組
 │   └── reporting.py                  # 報告與數據 CSV/PDF 產出
-├── components/                       # Streamlit 各分頁 UI 元件
-│   ├── sidebar.py                    # 側邊欄控制項
-│   ├── overview.py                   # 商業理解與研究動機
-│   ├── data_understanding.py         # EDA、分佈與資料品質
-│   ├── data_preparation.py           # 前處理與切分展示
-│   ├── feature_selection_ui.py       # 特徵選擇比較儀表板
-│   ├── evaluation_ui.py              # 模型評估、95% PI 與假設檢定
-│   ├── prediction_ui.py              # 互動式單筆特徵預測
-│   └── report_ui.py                  # 成果匯出與報告下載
-├── scripts/                          # 命令列與實驗腳本
-│   ├── prepare_student_data.py       # 學生資料準備
-│   ├── prepare_flood_data.py         # 洪水抽樣資料準備
-│   ├── run_experiments.py            # 自動化實驗與報告產出
-│   └── generate_notebooks.py         # 產生重現 Jupyter Notebooks
-├── notebooks/                        # 可重現 Jupyter Notebooks
-│   ├── student_performance_analysis.ipynb
-│   └── flood_prediction_analysis.ipynb
-├── reports/                          # 產出成果與報告
-│   ├── final_report.md               # CRISP-DM 正式研究報告 (Markdown)
-│   ├── final_report.pdf              # 期末報告 PDF
-│   ├── notebooklm_summary.md         # NotebookLM 真實摘要填寫處
-│   ├── figures/                      # 靜態論文成果圖表
-│   ├── results/                      # 指標與預測 CSV
-│   └── ai_conversations/             # ChatGPT 對話 PDF 存放處
-├── docs/                             # 指南與方法論
-│   ├── methodology.md                # 統計與機器學習理論手冊
-│   ├── deployment.md                 # Streamlit Cloud 部署手冊
-│   ├── notebooklm_research_guide.md  # NotebookLM 研究指南
-│   └── chatgpt_conversation_export_guide.md # 對話 PDF 匯出指南
-├── assets/
-│   └── screenshots/                  # 系統操作說明與截圖目錄
-└── tests/                            # 自動化測試套件 (pytest)
-    ├── test_data_loader.py
-    ├── test_custom_dataset.py
-    ├── test_modeling.py
-    ├── test_feature_selection.py
-    └── test_prediction_intervals.py
+├── vercel.json                       # Vercel Monorepo 路由設定
+├── package.json                      # Next.js 前端相依套件與腳本
+├── requirements.txt                  # Python 完整相依套件清單
+├── tests/                            # 自動化測試套件 (pytest, 30 項全通)
+│   ├── test_api.py                   # FastAPI REST API 整合測試 (10 項)
+│   ├── test_data_loader.py           # 資料載入測試
+│   ├── test_custom_dataset.py        # SSRF 防護與資料檢核測試
+│   ├── test_modeling.py              # 線性回歸訓練與指標測試
+│   ├── test_feature_selection.py     # 5 大特徵選擇演算法測試
+│   └── test_prediction_intervals.py  # 95% PI 與假設檢定測試
+└── app.py                            # [Legacy] 原 Streamlit 進入點 (保留)
 ```
 
 ---
@@ -147,7 +146,8 @@ HW2-Multiple Linear regression/
 ## 💻 本機執行指南 (Local Execution)
 
 ### 1. 環境需求
-- Python 3.11、3.12 或 3.14
+- Python 3.11+ / 3.12 / 3.14
+- Node.js 18+ (推薦 v20 LTS)
 - Git
 
 ### 2. 安裝步驟
@@ -156,42 +156,48 @@ HW2-Multiple Linear regression/
 git clone https://github.com/sam052003/Multiple-Linear-regression.git
 cd Multiple-Linear-regression
 
-# 安裝相依套件
+# 安裝 Python 相依套件
 pip install -r requirements.txt
+
+# 安裝前端 Node.js 相依套件
+npm install
 ```
 
-### 3. 執行自動化測試 (20 項全數通過)
+### 3. 執行自動化測試 (30 項全數通過)
 ```bash
 pytest -v
 ```
 
-### 4. 啟動 Streamlit 互動儀表板
-```bash
-streamlit run app.py
-```
-啟動後在瀏覽器開啟 `http://localhost:8501` 即可進入儀表板。
+### 4. 啟動開發伺服器
 
-### 5. 批次執行全套實驗與報告產出
-```bash
-python scripts/run_experiments.py
+#### 終端機 1：啟動 FastAPI 後端 (Port 8000)
+```powershell
+python -m uvicorn api.index:app --reload --port 8000
 ```
+- API 文件：`http://127.0.0.1:8000/api/docs`
+
+#### 終端機 2：啟動 Next.js 前端 (Port 3000)
+```powershell
+npm run dev
+```
+- 瀏覽器開啟：`http://localhost:3000`
 
 ---
 
-## 🌐 雲端部署 (Deployment)
+## 🌐 Vercel 雲端部署 (Vercel Deployment)
 
-本專案支援一鍵部署至 **Streamlit Community Cloud**：
-1. 進入 [share.streamlit.io](https://share.streamlit.io/) 並登入 GitHub。
-2. 選擇 Repository：`sam052003/Multiple-Linear-regression`。
-3. Branch 設定為 `main`，Main file path 設定為 `app.py`。
-4. 點選 **Deploy** 即可取得公開 Demo URL。
-> 詳細步驟請參閱 [docs/deployment.md](docs/deployment.md)。
+本專案支援一鍵部署至 **Vercel**：
+1. 進入 [Vercel Dashboard](https://vercel.com/dashboard) 並連結 GitHub。
+2. 匯入 Repository：`sam052003/Multiple-Linear-regression`。
+3. Framework Preset 保持為 `Next.js`，Root Directory 保持為 `./`。
+4. 點選 **Deploy**，Vercel 將自動編譯 Next.js 前端並以 Serverless Function 架設 `api/index.py`。
+> 詳細步驟與資源限制說明請參閱 [docs/deployment.md](docs/deployment.md)。
 
 ---
 
 ## 🤖 AI 輔助開發揭露 (AI Assistance Disclosure)
 
 - **工具**：Google Antigravity (Gemini 3.8 Flash)
-- **輔助範疇**：CRISP-DM 架構規劃、SSRF 網址安全防護設計、Statsmodels OLS 與 Scikit-learn 特徵矩陣對齊、自動化測試撰寫與報告模組整合。
+- **輔助範疇**：CRISP-DM 架構規劃、Next.js 14 + FastAPI 遷移、SSRF 網址安全防護設計、Statsmodels OLS 與 Scikit-learn 特徵矩陣對齊、自動化測試撰寫與報告模組整合。
 - **對話 PDF 匯出**：請依據 [docs/chatgpt_conversation_export_guide.md](docs/chatgpt_conversation_export_guide.md) 將真實對話匯出並放置於 `reports/ai_conversations/`。
 - **NotebookLM 研究**：請依據 [docs/notebooklm_research_guide.md](docs/notebooklm_research_guide.md) 將您的真實研讀心得填入 [reports/notebooklm_summary.md](reports/notebooklm_summary.md)。

@@ -1,0 +1,115 @@
+'use client';
+
+import React from 'react';
+import { Database, GitBranch, Github, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
+import { DatasetItem } from '../types/api';
+
+interface NavbarProps {
+  datasets: DatasetItem[];
+  selectedProblem: string;
+  onSelectProblem: (id: string) => void;
+  isBackendHealthy: boolean;
+  onOpenCustomModal: () => void;
+}
+
+export default function Navbar({
+  datasets,
+  selectedProblem,
+  onSelectProblem,
+  isBackendHealthy,
+  onOpenCustomModal,
+}: NavbarProps) {
+  return (
+    <header className="sticky top-0 z-50 w-full border-b border-slate-800/80 bg-[#090d16]/80 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
+        {/* Brand */}
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 shadow-lg shadow-indigo-500/25">
+            <Sparkles className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">
+                MLR <span className="gradient-text">Studio</span>
+              </h1>
+              <span className="hidden rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-xs font-medium text-indigo-300 sm:inline-flex">
+                CRISP-DM v2.0
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">Multiple Linear Regression & Feature Selection</p>
+          </div>
+        </div>
+
+        {/* Center: Problem Selector */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-xl border border-slate-800 bg-slate-900/80 p-1 shadow-inner">
+            <Database className="ml-2 h-4 w-4 text-indigo-400" />
+            <select
+              value={selectedProblem}
+              onChange={(e) => {
+                if (e.target.value === 'custom') {
+                  onOpenCustomModal();
+                } else {
+                  onSelectProblem(e.target.value);
+                }
+              }}
+              className="bg-transparent px-3 py-1 text-sm font-medium text-slate-200 outline-none hover:text-white cursor-pointer"
+            >
+              <optgroup label="Core Problems">
+                <option value="50_startups" className="bg-slate-900 text-slate-200">
+                  50 Startups (Default Teaching Case)
+                </option>
+                <option value="student_performance" className="bg-slate-900 text-slate-200">
+                  Student Performance (Primary Research, 19 Features)
+                </option>
+                <option value="flood_prediction" className="bg-slate-900 text-slate-200">
+                  Flood Probability (Synthetic Big Data, 20 Features)
+                </option>
+              </optgroup>
+              <optgroup label="Custom Dataset">
+                <option value="custom" className="bg-slate-900 text-indigo-300">
+                  + Custom Dataset (URL / Upload)...
+                </option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+
+        {/* Right Actions */}
+        <div className="flex items-center gap-3">
+          {/* Health Pill */}
+          <div
+            className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium md:flex ${
+              isBackendHealthy
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                : 'border-amber-500/30 bg-amber-500/10 text-amber-400'
+            }`}
+          >
+            {isBackendHealthy ? (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>FastAPI Connected</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="h-3.5 w-3.5" />
+                <span>API Connecting...</span>
+              </>
+            )}
+          </div>
+
+          {/* GitHub Repo */}
+          <a
+            href="https://github.com/sam052003/Multiple-Linear-regression"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-xs font-medium text-slate-300 transition-all hover:border-slate-700 hover:bg-slate-800 hover:text-white"
+          >
+            <Github className="h-4 w-4" />
+            <span className="hidden sm:inline">GitHub</span>
+          </a>
+        </div>
+      </div>
+    </header>
+  );
+}

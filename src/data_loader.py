@@ -18,12 +18,9 @@ from src.config import (
 )
 from src.data_validation import fetch_csv_safely
 
-try:
-    import streamlit as st
-    cache_decorator = st.cache_data
-except ImportError:
-    def cache_decorator(func):
-        return func
+from functools import lru_cache
+
+cache_decorator = lru_cache(maxsize=32)
 
 
 @cache_decorator
