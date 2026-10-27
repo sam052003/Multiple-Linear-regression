@@ -10,7 +10,6 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Agg")  # Non-interactive backend
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 from src.config import FIGURES_DIR, RESULTS_DIR, REPORTS_DIR
 

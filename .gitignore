@@ -46,3 +46,6 @@ data/raw/*
 *kaggle.json
 *.pem
 *.key
+
+.vercel
+.env*

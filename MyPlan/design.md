@@ -792,6 +792,32 @@ FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamli
 - **部署準備狀態 (Deployment Readiness)**：
   - **Ready for Vercel Preview Deployment**。已解決所有已知部署阻礙。
 
+### 2026-10-27: Vercel Preview Deployment 執行與即時雲端驗收
+- **進度**：成功使用 Vercel CLI 建立專案並完成 Preview Deployment，經查驗 Build Logs 與 Runtime Logs 排除套件問題，線上 API 11 大端點即時測試全數通過。
+- **部署流程與歷程**：
+  1. *專案連結與建立*：以 `multiple-linear-regression` 為專案名稱，成功連結至 Vercel 帳號 (`sam980671-6245`)，專案 ID 為 `prj_6ez41SKCmgLOY90cJsHakVq3qfcy`。
+  2. *初次部署 Runtime Log 排錯*：初次部署後，呼叫 `/api/health` 觸發 500 錯誤。經執行 `vercel logs` 檢視 Python Runtime 錯誤日誌，發現 `src/reporting.py` 頂層存在未使用的 `import seaborn as sns`，而 Serverless 輕量相依庫未包含 seaborn，導致 Python 處理程序拋出 `ModuleNotFoundError`。
+  3. *最小必要修正*：自 `src/reporting.py` 移除完全未使用的 `import seaborn as sns`。
+  4. *Preview 部署成功*：執行 `vercel deploy --logs`（不使用 `--prod`），成功發布 Preview Deployment：
+     - **Deployment ID**：`dpl_8fqypxi95Qa6udXrVc22ku9ZHhHz`
+     - **Preview URL**：`https://multiple-linear-regression-9frlrqv5b-cwa-weather-project.vercel.app`
+     - **Ready State**：`READY`
+- **雲端即時整合測試 (Live Cloud Preview Tests)**：
+  - 撰寫並執行專屬雲端測試腳本，共 11 個項目 100% 通過：
+    1. `GET /api/health`：回傳 HTTP 200，API 正常運作。
+    2. `GET /api/datasets`：正確列出 3 個內建回歸資料集。
+    3. `GET /api/datasets/{id}/overview`：50 Startups (50 筆)、Student Performance (6,607 筆)、Flood Probability (30,000 筆) 全部成功解析，且 Flood 之 `id` 欄位維持強制排除。
+    4. `POST /api/analysis/train`：50 Startups 基底回歸擬合成功 (Train $R^2=0.9537$, Test $R^2=0.8987$)。
+    5. `POST /api/analysis/feature-selection`：平行執行 6 種特徵選擇方法（SelectKBest, RFE, Lasso, SFS, Permutation, Baseline），正確選出最佳模型。
+    6. `POST /api/analysis/evaluation`：殘差散佈數據、五大統計假設診斷 (Linearity, DW, BP, Q-Q, VIF) 正確輸出。
+    7. `POST /api/predict`：即時推論輸出點估計、95% CI 與 95% PI，嚴格驗證 PI 寬於 CI。
+    8. `POST /api/datasets/upload`：自訂 CSV 上傳、無狀態模型訓練與互動預測完整閉環。
+    9. `GET /api/reports/markdown`：完整 Markdown 綜合報告成功讀取 (4,972 字元)。
+    10. `GET /api/reports/pdf`：正式研究論文 PDF 檔案成功下載 (6,484 位元組)。
+    11. `GET /api/reports/download-results`：Metrics CSV (123,899 bytes) 與 Features CSV (2,715 bytes) 下載成功。
+- **規範遵循**：未合併至 `main` 分支，未執行正式 Production Deployment (`--prod`)，所有修正均記錄於 `migration/vercel` 分支。
+
+
 
 
 
