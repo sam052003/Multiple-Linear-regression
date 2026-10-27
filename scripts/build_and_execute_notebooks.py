@@ -1,8 +1,8 @@
 """
 Script: build_and_execute_notebooks.py
 Description: Build publication-quality Jupyter Notebooks for Student Performance Factors
-and Flood Probability Prediction, execute all code cells authentically using nbclient,
-and save the notebooks with real cell outputs and plots.
+and Flood Probability Prediction, with cross-platform Chinese font support, rigorous academic descriptions,
+and real cell outputs executed via nbclient.
 """
 
 import os
@@ -22,11 +22,12 @@ def create_student_notebook():
 
     # Title & Metadata
     cells.append(nbf.v4.new_markdown_cell("""# 學生表現因素多元線性回歸分析 (Student Performance Factors Analysis)
-## 遵循 CRISP-DM 流程之資料理解、防洩漏前處理、特徵選擇、95% 預測區間與統計診斷
+## 遵循 CRISP-DM 流程之資料理解、防洩漏前處理、特徵選擇、95% 預測區間與計量統計診斷
 
 - **研究課程**：機器學習與統計數據分析
 - **主要資料集**：Kaggle Student Performance Factors (`lainguyn123/student-performance-factors`)
-- **目標變數**：`Exam_Score` (0～100 連續數值)
+- **資料性質揭露**：公開模擬／合成教育基準資料集 (Synthetic Educational Benchmark)，非真實學生田野調查
+- **目標變數**：`Exam_Score` (連續數值，範圍約 55～101 分)
 - **分析方法**：Scikit-learn LinearRegression、Statsmodels OLS、5 折交叉驗證、五大回歸假設檢定
 """))
 
@@ -38,12 +39,21 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 
-# 設定繪圖風格
+# 設定繪圖風格與跨平台繁體中文字型 Fallback
 plt.style.use("seaborn-v0_8-whitegrid" if "seaborn-v0_8-whitegrid" in plt.style.available else "default")
 plt.rcParams["font.family"] = "sans-serif"
+plt.rcParams["font.sans-serif"] = [
+    "Microsoft JhengHei",
+    "Microsoft JhengHei UI",
+    "Noto Sans TC",
+    "Microsoft YaHei",
+    "SimHei",
+    "sans-serif",
+]
+plt.rcParams["axes.unicode_minus"] = False
 plt.rcParams["figure.autolayout"] = True
 
-# 加入專案根目錄至 sys.path
+# 加入專案根目錄至 sys.path (避免硬編碼絕對路徑)
 sys.path.insert(0, os.path.abspath(".."))
 
 from src.data_loader import load_student_performance
@@ -56,16 +66,17 @@ from src.statistical_tests import diagnose_regression_assumptions
     # Phase 1 & 2
     cells.append(nbf.v4.new_markdown_cell("""## 第一與第二階段：商業理解 (Business Understanding) 與資料探索 (Data Understanding)
 ### 1.1 研究背景與因果限制揭露
-多元線性回歸估計之迴歸係數為在控制其他變數下的**統計邊際關聯度**。**「關聯性不代表因果關係 (Correlation is NOT Causation)」**。在缺乏外生隨機實驗 (RCT) 之前提下，分析結果僅代表預測關聯，不可逕行推論為因果介入政策。
+多元線性回歸估計之迴歸係數為在控制模型其他變數下的**統計邊際關聯度**。**「統計關聯不代表因果關係 (Correlation is NOT Causation)」**。在缺乏外生隨機實驗 (RCT) 之前提下，分析結果僅代表預測關聯，不可逕行推論為因果介入政策。
 
 ### 1.2 載入資料與檢視結構
-載入 Kaggle Student Performance Factors 資料集（6,607 筆樣本，19 個原始輸入特徵 + 1 個目標變數 `Exam_Score`）。
+載入 Kaggle Student Performance Factors 公開模擬資料集（6,607 筆樣本，19 個原始輸入特徵 + 1 個目標變數 `Exam_Score`）。
 """))
 
     cells.append(nbf.v4.new_code_cell("""df = load_student_performance()
 print(f"資料集維度：{df.shape[0]} 筆樣本，{df.shape[1]} 個欄位")
-print("各欄位遺漏值檢視：")
-print(df.isnull().sum()[df.isnull().sum() > 0])
+print("各欄位未填記錄 (Missing Entries) 檢視：")
+missing_series = df.isnull().sum()[df.isnull().sum() > 0]
+print(missing_series if not missing_series.empty else "無未填記錄")
 df.head()
 """))
 
@@ -75,16 +86,16 @@ print(df["Exam_Score"].describe())
 
 fig, ax = plt.subplots(figsize=(8, 4))
 ax.hist(df["Exam_Score"], bins=30, color="#4F46E5", alpha=0.7, edgecolor="#312E81")
-ax.axvline(df["Exam_Score"].mean(), color="#EF4444", linestyle="--", linewidth=2, label=f"Mean = {df['Exam_Score'].mean():.2f}")
-ax.axvline(df["Exam_Score"].median(), color="#10B981", linestyle=":", linewidth=2, label=f"Median = {df['Exam_Score'].median():.2f}")
+ax.axvline(df["Exam_Score"].mean(), color="#EF4444", linestyle="--", linewidth=2, label=f"平均值 (Mean) = {df['Exam_Score'].mean():.2f}")
+ax.axvline(df["Exam_Score"].median(), color="#10B981", linestyle=":", linewidth=2, label=f"中位數 (Median) = {df['Exam_Score'].median():.2f}")
 ax.set_title("Exam Score 分佈直方圖 (近似常態對稱分佈)", fontsize=13, fontweight="bold")
 ax.set_xlabel("考試成績 (Exam_Score)", fontsize=11)
-ax.set_ylabel("頻率", fontsize=11)
+ax.set_ylabel("頻率次數", fontsize=11)
 ax.legend()
 plt.show()
 """))
 
-    cells.append(nbf.v4.new_code_cell("""# 連續數值特徵與 Exam_Score 相關係數檢視
+    cells.append(nbf.v4.new_code_cell("""# 連續數值特徵與 Exam_Score 皮爾森相關係數矩陣
 num_cols = ["Hours_Studied", "Attendance", "Sleep_Hours", "Previous_Scores", "Tutoring_Sessions", "Physical_Activity", "Exam_Score"]
 corr_mat = df[num_cols].corr()
 print("連續變數與 Exam_Score 相關矩陣：")
@@ -103,8 +114,8 @@ plt.show()
 
     # Phase 3
     cells.append(nbf.v4.new_markdown_cell("""## 第三階段：資料準備 (Data Preparation) — 嚴格防範資料洩漏之管線
-1. **切分優先**：先執行 80/20 訓練/測試切分 (`random_state=42`)，徹底隔離測試集。
-2. **無洩漏轉換**：`ColumnTransformer` 僅在訓練集 `.fit()`，中位數/眾數補值與標準化參數完全來自訓練集。
+1. **切分優先**：最先執行 80/20 訓練/測試切分 (`random_state=42`)，徹底隔離測試集。
+2. **無洩漏轉換**：`ColumnTransformer` 僅在訓練集 `.fit()`，中位數/眾數補值與標準化參數完全來自訓練集（不逕行假設缺失值符合 MAR，採實務工程補值）。
 3. **One-Hot Encoding 基準組**：設定 `drop='first'`，杜絕虛擬變數陷阱 (Dummy Variable Trap)。
 4. 原始 19 個輸入特徵經編碼後擴增為 **27 個數值型設計特徵**。
 """))
@@ -125,11 +136,11 @@ print("編碼後特徵清單：", artifacts.feature_names_out)
     cells.append(nbf.v4.new_markdown_cell("""## 第四階段：特徵選擇與模型建立 (Modeling & Feature Selection)
 系統性比較 **全特徵基準 (Baseline)** 與 **5 種主流特徵選擇方法**：
 - **Baseline (All Features)**：保留全部 27 個特徵
-- **SelectKBest (Filter)**：單變量 F 檢定 ($f_{\\text{regression}}$)，取 $K=5$
-- **RFE (Wrapper)**：遞迴剔除權重最小特徵，取 $K=5$
-- **SFS Forward (Wrapper)**：循序前向貪婪挑選最佳子集，取 $K=5$
-- **Lasso Selection (Embedded)**：LassoCV 尋求最優 $\\alpha$
-- **Permutation Importance (Model-based)**：泛化排列重要度，取 $K=5$
+- **SelectKBest (Filter)**：單變量 F 檢定 ($f_{\\text{regression}}$)，固定取 $K=5$
+- **RFE (Wrapper)**：遞迴剔除權重最小特徵，固定取 $K=5$
+- **SFS Forward (Wrapper)**：循序前向貪婪挑選最佳子集，固定取 $K=5$
+- **Lasso Selection (Embedded)**：LassoCV 尋求最優 $\\alpha$（大樣本下自適應保留全特徵）
+- **Permutation Importance (Model-based)**：泛化排列重要度，固定取 $K=5$
 """))
 
     cells.append(nbf.v4.new_code_cell("""summary_df, results_map, models_map = run_feature_selection_comparison(
@@ -162,7 +173,7 @@ for bar in bars:
 plt.show()
 """))
 
-    cells.append(nbf.v4.new_code_cell("""# 檢視各方法挑選出的特徵子集
+    cells.append(nbf.v4.new_code_cell("""# 檢視各方法挑選出的特徵子集明細
 for method, res in results_map.items():
     print(f"[{method}] (挑選 {len(res.selected_features)} 個特徵):")
     print(f"  -> {', '.join(res.selected_features)}")
@@ -173,7 +184,7 @@ for method, res in results_map.items():
     # Phase 5
     cells.append(nbf.v4.new_markdown_cell("""## 第五階段：模型評估 (Evaluation)、95% 預測區間推論與五大假設診斷
 ### 5.1 Statsmodels OLS 95% 信賴區間 (CI) vs. 95% 預測區間 (PI)
-- **95% Confidence Interval (母體均值信賴區間)**：描述「平均反應期望值」$E[Y|X]$ 的估計不確定度。
+- **95% Confidence Interval (母體均值信賴區間)**：描述「平均反應期望值」$E[Y|X]$ 的估計不確定度。單一學生真實考分包含個體擾動項 $\\sigma^2$，故非用於包夾單點。
 - **95% Prediction Interval (單一觀測值預測區間)**：描述「未來特定單一位新學生」實際考分的落點，必定涵蓋隨機誤差 $\\sigma^2$。
 """))
 
@@ -187,8 +198,8 @@ y_test = artifacts.y_test.values
 ci_cov = np.mean((y_test >= pi_df["mean_ci_lower"].values) & (y_test <= pi_df["mean_ci_upper"].values)) * 100
 pi_cov = np.mean((y_test >= pi_df["obs_ci_lower"].values) & (y_test <= pi_df["obs_ci_upper"].values)) * 100
 
-print(f"95% CI (母體均值) 平均區間寬度：{ci_mean_width:.4f} 分，測試集涵蓋率：{ci_cov:.2f}%")
-print(f"95% PI (單一觀測值) 平均區間寬度：{pi_mean_width:.4f} 分，測試集涵蓋率：{pi_cov:.2f}%")
+print(f"95% CI (母體均值) 平均區間寬度：{ci_mean_width:.4f} 分，測試集個體落點率：{ci_cov:.2f}% (CI 統計對象非單一個體)")
+print(f"95% PI (單一觀測值) 平均區間寬度：{pi_mean_width:.4f} 分，測試集真實涵蓋率：{pi_cov:.2f}%")
 print(f"PI 平均寬度為 CI 的 {pi_mean_width / ci_mean_width:.1f} 倍！")
 """))
 
@@ -197,8 +208,8 @@ sort_idx = np.argsort(pi_df["mean"].values)[:50]
 x_axis = np.arange(len(sort_idx))
 
 plt.figure(figsize=(10, 5))
-plt.fill_between(x_axis, pi_df["obs_ci_lower"].values[sort_idx], pi_df["obs_ci_upper"].values[sort_idx], color="#C7D2FE", alpha=0.6, label="95% Prediction Interval (Individual)")
-plt.fill_between(x_axis, pi_df["mean_ci_lower"].values[sort_idx], pi_df["mean_ci_upper"].values[sort_idx], color="#818CF8", alpha=0.8, label="95% Confidence Interval (Mean Response)")
+plt.fill_between(x_axis, pi_df["obs_ci_lower"].values[sort_idx], pi_df["obs_ci_upper"].values[sort_idx], color="#C7D2FE", alpha=0.6, label="95% 預測區間 PI (針對未來個別學生)")
+plt.fill_between(x_axis, pi_df["mean_ci_lower"].values[sort_idx], pi_df["mean_ci_upper"].values[sort_idx], color="#818CF8", alpha=0.8, label="95% 信賴區間 CI (針對母體平均反應期望值)")
 plt.plot(x_axis, pi_df["mean"].values[sort_idx], color="#312E81", linewidth=2, label="OLS 擬合值 (y_hat)")
 plt.scatter(x_axis, artifacts.y_test.values[sort_idx], color="#DC2626", s=28, zorder=5, label="真實值 (y_test)")
 plt.title("95% CI vs. 95% PI 實證視覺化 (前 50 筆測試樣本)", fontsize=13, fontweight="bold")
@@ -220,8 +231,8 @@ for k, v in diagnostics.items():
     # Phase 6
     cells.append(nbf.v4.new_markdown_cell("""## 第六階段：結論與部署考量 (Deployment & Conclusion)
 1. **模型重現性確認**：Baseline 模型測試集 $R^2 = 0.769650$（精確重現 $\\approx 0.7696$）。
-2. **Lasso 保留全特徵原理**：在大樣本 $N=5,285$ 下，CV 選定之 $\\alpha=0.002271$ 微弱，所有變數在微量正則化下皆具微弱非零係數。
-3. **特徵縮減權衡**：將 27 個特徵縮減至 5 個核心特徵時，$R^2$ 由 0.7696 微降至 0.6665。在充沛樣本下，縮減特徵無法降低變異數，反而引入遺漏變數偏差，證實特徵選擇效益在於簡化維護與解釋，而非無條件提高預測效能。
+2. **Lasso 保留全特徵原理**：在大樣本 $N = 5,285$ 下，CV 選定之 $\\alpha = 0.002271$ 微弱，所有變數在微量正則化下皆具微弱非零係數。
+3. **特徵縮減權衡**：將 27 個特徵縮減至 5 個核心特徵時，$R^2$ 由 0.7696 降至 0.6665。在充沛樣本下，縮減特徵無法降低變異數，反而引入遺漏變數偏差，證實特徵選擇效益在於簡化維護與解釋，而非無條件提高預測效能。
 """))
 
     nb["cells"] = cells
@@ -234,7 +245,7 @@ def create_flood_notebook():
 
     # Title & Metadata
     cells.append(nbf.v4.new_markdown_cell("""# 洪水發生機率多元線性回歸對比研究 (Flood Probability Prediction)
-## Kaggle Playground Series s4e5 — 均勻分散型訊號架構下的特徵縮減極限
+## Kaggle Playground Series s4e5 — 廣泛分散型訊號架構下的特徵縮減極限
 
 - **研究定位**：CRISP-DM 跨案例對比研究（比較 Student 集中型訊號 vs Flood 分散型訊號）
 - **資料集**：Kaggle Flood Probability Prediction（30,000 筆固定隨機抽樣合成資料集）
@@ -251,6 +262,15 @@ import matplotlib.pyplot as plt
 
 plt.style.use("seaborn-v0_8-whitegrid" if "seaborn-v0_8-whitegrid" in plt.style.available else "default")
 plt.rcParams["font.family"] = "sans-serif"
+plt.rcParams["font.sans-serif"] = [
+    "Microsoft JhengHei",
+    "Microsoft JhengHei UI",
+    "Noto Sans TC",
+    "Microsoft YaHei",
+    "SimHei",
+    "sans-serif",
+]
+plt.rcParams["axes.unicode_minus"] = False
 plt.rcParams["figure.autolayout"] = True
 
 sys.path.insert(0, os.path.abspath(".."))
@@ -321,7 +341,7 @@ plt.show()
     # Comparative Discussion
     cells.append(nbf.v4.new_markdown_cell("""## 3. 跨資料集訊號架構對照結論
 1. **重現性確認**：Flood Baseline 測試集 $R^2 = 0.844545$（精確重現約 0.8445）。
-2. **均勻分散訊號崩跌原理**：洪水機率目標變數由 20 個特徵等權重線性疊加而成（每特徵貢獻約 5% 方差）。當強制挑選 $K=5$ 個特徵時，丟失了 75% 的有效訊號，導致 $R^2$ 崩跌 78.6%（由 0.8445 跌至 0.1807）。
+2. **廣泛分散訊號崩跌原理**：洪水機率目標變數由 20 個特徵相對均勻線性疊加而成。當強制挑選 $K=5$ 個特徵時，丟失了大量有效訊號，導致 $R^2$ 崩跌 78.6%（由 0.8445 跌至約 0.1807）。
 3. **對照 Student 集中型訊號**：Student 資料集中前 5 個特徵保留了 86.6% 的解釋力。兩者強烈對比，證明**特徵選擇是否適用完全取決於真實資料生成程序的訊號集中程度**。
 """))
 
@@ -350,7 +370,7 @@ def main():
     flood_nb = create_flood_notebook()
     execute_and_save_notebook(flood_nb, flood_nb_path)
 
-    print("\nAll notebooks built, executed, and saved successfully!")
+    print("\nAll notebooks built, executed, and saved successfully with clean Chinese font rendering!")
 
 
 if __name__ == "__main__":

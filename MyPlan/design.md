@@ -980,6 +980,46 @@ FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamli
   - `pytest tests/ -v`：45 passed, 0 failed (100% 通過，歷時 14.78s)。
   - `npm run build`：Next.js 生產構建成功，靜態頁面生成 (4/4) 無任何錯誤。
 
+### 2026-10-28: Final Academic Report Quality Assurance & Dynamic Pipeline Hardening (學術正確性與動態報告優化)
+- **進度**：完成 CRISP-DM 獨立研究報告最終學術品質審查；修正報告動態數據生成機制；更新計量經濟學與統計推論學術描述；解決 Notebook 中文字型警告並完成真實無錯誤重新執行；全面優化 12 頁 PDF 報告排版與 Callout 樣式；新增數據一致性與學術嚴謹性自動化測試（pytest 達到 49 項 100% 通過）；通過 Next.js 生產構建。
+- **調整項目與學術規範修正 (Academic Corrections Implemented)**：
+  1. *動態報告數據生成 (Dynamic Report Data)*：
+     - 重構 `src/reporting.py:build_markdown_report()`，所有模型指標表格（R²、Adjusted R²、RMSE、MAE、MSE、訓練集 R²、5折 CV R²、執行秒數）與診斷檢定表格均由實際傳入之實驗 DataFrame (`student_summary_df`, `flood_summary_df`, `diagnostics`) 動態格式化產出，徹底根除任何硬編碼指標。
+     - 若缺少特定診斷資料，於表格中明確標註「尚未計算」，嚴禁虛構數據。
+     - 研究結論與文字摘述（如 Baseline R²、保留率、耗時等）統一由動態變數取代，保證與實驗結果 100% 一致。
+     - 新增 `tests/test_reporting_consistency.py`，驗證報告數值與 CSV 數據之一致性、缺少診斷資料之防禦容錯、以及學術描述嚴謹度。
+  2. *計量經濟學與統計推論嚴謹描述修正 (Academic Tone & Rigor)*：
+     - **資料集屬性揭露**：明確標示 Student Performance Factors 為公開合成／模擬教育基準資料（Kaggle `lainguyn123/student-performance-factors`），附註其資料生成程序 (DGP) 與欄位性質，不宣稱為真實學生問卷調查。
+     - **缺失值機制審慎評估**：因缺乏縱向追蹤與非隨機無回應模式證據，不任意斷言缺失值為隨機缺失 (MAR)，改採實證前處理規範說明。
+     - **線性回歸假設檢定詮釋**：
+       - *線性性*：說明 OLS 殘差與擬合值相關度接近 0 係由常態方程式正交性 ($X^T e = 0$) 於代數上必然成立，不代表實質關係無曲度，必須結合殘差散佈圖 (Residuals vs. Fitted Plot) 共同判讀。
+       - *獨立性*：指出 Durbin-Watson 檢定在數學上高度依賴觀測值之先後排列次序；在橫斷面資料中缺乏天然時間維度，DW 統計量僅能反映「目前排列無相依」，不可直接證明樣本本質獨立。
+       - *同質變異性*：修正 Breusch-Pagan 檢定詮釋，$p > 0.05$ 嚴謹定義為「未拒絕同質變異虛無假設」，而非「證明具備同質變異」。
+       - *常態性與預測區間*：誠實揭露 Jarque-Bera 顯著拒絕常態性之事實。補充計量理論：中央極限定理 (CLT) 雖保證大樣本下回歸係數估計量 $\hat{\beta}$ 具備漸近常態性，但不保證單一未來隨機誤差項 $\epsilon_0$ 亦服從常態分佈；在非典型重尾分佈下，常態型 95% 預測區間之尾端涵蓋率可能產生輕微偏差。
+       - *區間推論對象*：嚴格區分 95% CI（針對母體平均期望值 $E[Y|x_0]$）與 95% PI（針對個別個體實際值 $Y_0$），精確解釋為何測試集個體僅有約 50% 落在 CI 內，而有 99.47% 落在 PI 內。
+     - **Flood 訊號結構描述**：將先前提及之「20 個特徵各貢獻 5% 方差」調整為保守之實證描述，指出 20 個連續水文特徵在多元線性回歸中權重相對均勻分佈，無單一特徵具備壓倒性解釋力。
+     - **生產架構與離線邊界**：明確將模型持久化 (ONNX/Joblib)、輸入邊界驗證與概念漂移監控列為「未來生產架構建議 (Future Production Recommendations)」，並聲明本專案目前離線研究階段尚未正式上線。
+  3. *Jupyter Notebook 中文字型與圖表顯示優化*：
+     - 於 `scripts/build_and_execute_notebooks.py` 配置完整中文字型跨平台 Fallback 串列（Windows: `Microsoft JhengHei`, `Microsoft YaHei`, `SimHei`；Linux: `Noto Sans CJK TC`, `Noto Sans TC`；macOS: `PingFang TC`）。
+     - 設定 `matplotlib.rcParams['axes.unicode_minus'] = False` 解決負號方塊警告。
+     - 將圖表座標軸與圖例中無法由繁體中文字型完整支援之拉丁音調符號 `ŷ` 替換為標準學術符號 `y_hat`，徹底消除 `UserWarning: Glyph missing` 警告。
+     - 透過 `nbclient` 完整重新執行 `notebooks/student_performance_analysis.ipynb` 與 `notebooks/flood_prediction_analysis.ipynb`，確認所有儲存格執行無誤、圖表內嵌完備、繁體中文標籤正常呈現。
+  4. *正式 PDF 出版級排版審查 (12 頁無瑕疵生成)*：
+     - 使用 `pdfplumber` 與 `fontTools` 逐字逐頁檢查 `reports/final_report.pdf`：
+       - **繁體中文完整度**：所有字元與 Windows 微軟正黑體 (`msjh.ttc`) 字符集 100% 相容，全文件 null glyphs 統計為 0 (`nulls=0`)。
+       - **數學公式純化**：實作 `clean_inline_md()` 雙向字元對照，將 LaTeX 語法與非常用下標純化為乾淨 Unicode 符號（如 `β_hat`, `y_hat`, `x_0`, `Y_0`, `X^T X`, `10^(-5)`, `Σ |β_j|`, `n → ∞`, `≧`, `≦`），PDF 內 raw LaTeX 與 `$` 標籤漏檢數為 0。
+       - **程式碼區塊字型修復**：修正程式碼區塊包裹 `<font face="Courier">` 導致中文字型替換失效的錯誤，統一改用中文字型樣式，使提示區塊中文完整顯示。
+       - **Callout 區塊美化**：將 GitHub 樣式 Alert 區塊 (`[!IMPORTANT]`, `[!NOTE]`, `[!WARNING]`, `[!TIP]`) 自動解析為色彩鮮明、具備邊框與徽章標題之 Callout Table。
+       - **表格與分頁版面優化**：於第 6、7、9 節前配置 `PageBreak`，使 11 欄模型比較表（Student 表在第 4 頁、Flood 表在第 7 頁）各自在專屬頁面完整展開，無文字跨頁折斷、無欄位截斷；6 張高解析度圖表雙雙收錄於第 10、11、12 頁之附錄中。
+  5. *誠實保留真實研究紀錄待補項目*：
+     - 維持 `reports/notebooklm_summary.md` 與報告第 9.1 節之明確待補說明，嚴禁填入假文字，保留使用者手動貼入真實 NotebookLM 至少 100 字摘要之權利。
+     - 維持 `reports/ai_conversations/` 之匯出引導，由使用者將真實 ChatGPT / AI 對話紀錄匯出為 PDF 放置於該目錄。
+- **測試與驗證結果**：
+  - `pytest tests/ -v`：**49 passed, 0 failed** (100% 通過，包含 4 項全新報告數據一致性、容錯性、學術嚴謹性與 PDF 編譯測試)。
+  - `npm run build`：Next.js 生產構建成功，靜態頁面生成 (4/4) 無任何錯誤或型別警告。
+  - Notebook 執行：兩份 Notebook 均由命令列重新自動執行，儲存格執行計數連續完整，0 警告。
+  - PDF 頁面審查：共 12 頁，各頁面均具備動態頁碼與頁首，文字、表格、圖表與公式排列美觀。
+
 
 
 
