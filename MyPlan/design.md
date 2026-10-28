@@ -1061,13 +1061,27 @@ FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamli
   3. `pdfplumber` 檢查：12 頁 PDF 內容與 Markdown 表格 6 方法完全相符，無 LaTeX 洩漏、無空白字元。
   4. `npm run build`：Next.js 生產構建成功，4/4 靜態頁面生成無誤。
 
-
-
-
-
-
-
-
-
-
-
+### 2026-10-28: Actual Google NotebookLM Research & Verified Bibliography Integration (真實 NotebookLM 研究成果與參考文獻永久整合)
+- **進度**：完成使用者實際執行之 Google NotebookLM 文獻研究心得與 6 項真實來源對照整合；重構 `src/reporting.py` 將研究心得與參考文獻動態嵌入正式報告（第 9.1 節與第 10 節參考文獻），同時維持零寫入副作用與防自我引用機制；修正 `docs/notebooklm_research_guide.md` 獨立報告架構說明；重新產出 `reports/final_report.md` 與 13 頁 `reports/final_report.pdf`；新增 5 項專屬迴歸測試（全套 pytest 達 57 項 100% 通過）並通過 Next.js 生產編譯。
+- **整合細節與架構保護機制 (Implementation & Safeguards)**：
+  1. **真實 NotebookLM 研究心得與參考文獻存檔 (`reports/notebooklm_summary.md`)**：
+     - 完整存入使用者提供之四段真實研究心得（涵蓋 CRISP-DM 六階段、Filter / Wrapper / Embedded 與 `LassoCV` 不保證固定選取 5 個特徵、Student $R^2$ 由 $0.769650 \to 0.666460$ 與 Flood $R^2$ 由 $0.844545 \to 0.180733$ 之訊號分布差異、前處理與特徵選擇整合進交叉驗證 Pipeline 防資料洩漏、95% CI 與 95% PI 區別、合成資料因果推論限制與未來非線性／交互作用方向）。
+     - 明確標註「已完成 NotebookLM 實際研究」，完全移除舊有範例結構與待填佔位符。
+     - 建立精確對應之 `[1]`～`[6]` 文獻引用標記與 6 項真實參考文獻清單（IBM CRISP-DM、Scikit-learn Feature Selection、Scikit-learn Linear Models、Scikit-learn Common Pitfalls、Statsmodels `get_prediction`、專案內部研究成果 `reports/final_report.pdf`），零虛構來源。
+  2. **報告產生器永久動態整合 (`src/reporting.py` & `scripts/run_experiments.py`)**：
+     - 新增純讀取解析函式 `_load_notebooklm_research()`，預設由 `reports/notebooklm_summary.md` 動態讀取真實研究心得與參考文獻，注入正式報告第 9.1 節與第 10 節「參考文獻 (References)」。
+     - **預設無副作用**：`build_markdown_report()` 維持 `output_path=None` 純函式設計，絕不自動覆寫任何正式檔案。
+     - **缺檔防禦回退**：若摘要檔案不存在或未填寫，第 9.1 節與第 10 節自動顯示明確之「待補」提示。
+     - **防自我引用迴圈與防重複嵌入**：
+       - 程式層：嚴格禁止 `notebooklm_summary_path` 指向 `final_report.md`、`final_report.pdf` 或與 `output_path` 相同，並阻擋誤將完整報告貼入摘要檔之重複嵌入行為。
+       - 書目層：於產生 `final_report.md` 與 `final_report.pdf` 時，自動將來源 `[6]` 對 `reports/final_report.pdf` 之指標轉換為本報告第 2、4、6 節與 `reports/results/` 實證數據之內部對照說明，消除報告自我引用迴圈。
+     - **重跑不遺失**：`scripts/run_experiments.py`（支援完整執行與 `--report-only` 模式）每次重新產生報告均自動載入 `reports/notebooklm_summary.md`，確保研究心得永久保留。
+     - **誠實保留待補項**：第 9.2 節 ChatGPT / AI 協作對話紀錄 PDF 維持「待補：待使用者檢附」狀態，絕不虛構完成。
+     - **PDF 超連結與排版強化**：於 `clean_inline_md()` 與編號清單解析器支援多行縮排網址與可點擊 PDF 超連結 (`<a href="...">`)，確保長網址完整不斷裂、不超出邊界且可由文字抽取完整讀取。
+  3. **研究指南架構邊界修正 (`docs/notebooklm_research_guide.md`)**：
+     - 移除過時且不準確之「同步更新 Web Dashboard」描述，明確說明正式研究報告與公開網站完全分離，NotebookLM 研究心得僅進入離線獨立研究報告。
+- **驗收與測試結果 (Verification & Acceptance)**：
+  1. **原始實驗數據零變動**：Student（6 方法，Baseline $R^2=0.769650$, RMSE $=1.804445$；最佳 $K=5$ 為 Permutation Importance $R^2=0.666460$）與 Flood（6 方法，Baseline $R^2=0.844545$, RMSE $=0.019983$；最佳 $K=5$ 為 RFE $R^2=0.180733$）比較表與實驗 CSV 100% 一致。
+  2. **PDF 位置與品質確認**：最終 `reports/final_report.pdf` 共 13 頁；第 9.1 節（NotebookLM 文獻研究心得）、第 9.2 節（AI 對話紀錄待補說明）與第 10 節（6 項參考文獻與 5 組可點擊網址）完整呈現於 **第 9 頁**，全文件 0 缺字、0 LaTeX 殘留、無邊界溢位。
+  3. **自動化測試**：`pytest tests/ -v` **57 passed, 0 failed**（包含真實摘要整合、缺檔回退、防自我引用迴圈、連續重跑冪等性、PDF 文字與網址抽取、以及正式產出物 SHA-256 零變動驗證）。
+  4. **前端編譯**：`npm run build` 100% 通過，公開網站與公開 API 零修改。

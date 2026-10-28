@@ -16,6 +16,8 @@ import matplotlib.pyplot as plt
 
 from src.config import FIGURES_DIR, RESULTS_DIR, REPORTS_DIR
 
+DEFAULT_NOTEBOOKLM_SUMMARY_PATH = os.path.join(REPORTS_DIR, "notebooklm_summary.md")
+
 
 def export_csv_data(
     fs_summary_df: Optional[pd.DataFrame],
@@ -418,11 +420,140 @@ def _format_diagnostics_table(diagnostics: Optional[Dict[str, Any]]) -> str:
     table_str += "\n".join(rows) + "\n"
     return table_str
 
+
+def _load_notebooklm_research(
+    summary_path: Optional[str] = None,
+    output_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Read and parse the user's real Google NotebookLM research reflection and references
+    from `reports/notebooklm_summary.md` (or a specified custom summary path).
+    Pure read-only helper: never writes to disk, prevents self-reference loops,
+    and avoids duplicating the full research report.
+    """
+    target_path = summary_path if summary_path is not None else DEFAULT_NOTEBOOKLM_SUMMARY_PATH
+    abs_summary = os.path.abspath(target_path)
+
+    if output_path is not None and abs_summary == os.path.abspath(output_path):
+        raise ValueError(
+            "notebooklm_summary_path cannot be identical to output_path (self-reference loop prevented)."
+        )
+
+    if os.path.basename(abs_summary).lower() in ("final_report.md", "final_report.pdf"):
+        raise ValueError(
+            "notebooklm_summary_path cannot point to final_report.md or final_report.pdf (self-reference loop prevented)."
+        )
+
+    pending_section_9_1 = (
+        "### 9.1 Google NotebookLM 文獻研究心得 (待補：尚未偵測到摘要檔案)\n"
+        "> [!IMPORTANT]\n"
+        "> **待補提示**：\n"
+        "> 系統尚未於指定路徑讀取到已完成的 Google NotebookLM 研究摘要檔案（預設路徑：`reports/notebooklm_summary.md`）。"
+        "請依據 `docs/notebooklm_research_guide.md` 完成文獻研究並儲存真實心得後，重新執行報告產生流程。"
+    )
+    pending_references = "*(待補：將於完成 `reports/notebooklm_summary.md` 文獻研究後自動同步載入參考文獻清單)*"
+
+    if not os.path.exists(abs_summary):
+        return {
+            "is_completed": False,
+            "section_9_1_md": pending_section_9_1,
+            "references_md": pending_references,
+        }
+
+    with open(abs_summary, "r", encoding="utf-8") as f:
+        raw_content = f.read()
+
+    if (
+        "# 大學「多元線性回歸" in raw_content
+        or ("## 1. 商業與研究問題理解" in raw_content and "## 4. 模型建立與特徵選擇實驗" in raw_content)
+    ):
+        raise ValueError(
+            "NotebookLM summary file appears to contain the full research report; refusing to duplicate report content."
+        )
+
+    stripped_all = raw_content.strip()
+    if (
+        not stripped_all
+        or "狀態：待填寫" in raw_content
+        or "[=== 請將您在 NotebookLM" in raw_content
+        or "[=== 待補欄位" in raw_content
+    ):
+        return {
+            "is_completed": False,
+            "section_9_1_md": pending_section_9_1,
+            "references_md": pending_references,
+        }
+
+    summary_lines: List[str] = []
+    reference_lines: List[str] = []
+    mode = "summary"
+
+    for raw_line in raw_content.splitlines():
+        s = raw_line.strip()
+        if s.startswith("# "):
+            continue
+        if s in ("---", "***", "___"):
+            continue
+        if s.startswith("## "):
+            heading_txt = s[3:].strip()
+            if any(k in heading_txt for k in ("參考文獻", "來源清單", "參考來源", "References")):
+                mode = "references"
+            elif any(k in heading_txt for k in ("研究心得", "研究摘要", "心得", "摘要", "Summary")):
+                mode = "summary"
+            continue
+
+        if mode == "summary":
+            if s.startswith(">") and "研究狀態" in s:
+                continue
+            summary_lines.append(raw_line.rstrip())
+        elif mode == "references":
+            if "final_report.pdf" in s or "final_report.md" in s:
+                cleaned_ref_line = re.sub(
+                    r"`?(?:reports/)?final_report\.(?:pdf|md)`?",
+                    (
+                        "本報告第 2、4、6 節實證分析與實驗結果數據"
+                        "（`reports/results/student_feature_selection_comparison.csv`、"
+                        "`reports/results/flood_feature_selection_comparison.csv`；"
+                        "於 NotebookLM 研究階段匯入專案初稿作為交叉對照來源）"
+                    ),
+                    raw_line.rstrip(),
+                )
+                reference_lines.append(cleaned_ref_line)
+            else:
+                reference_lines.append(raw_line.rstrip())
+
+    summary_body = "\n".join(summary_lines).strip()
+    references_body = "\n".join(reference_lines).strip()
+
+    if not summary_body:
+        return {
+            "is_completed": False,
+            "section_9_1_md": pending_section_9_1,
+            "references_md": pending_references,
+        }
+
+    section_9_1_md = (
+        "### 9.1 Google NotebookLM 文獻研究心得（已完成 NotebookLM 實際研究）\n"
+        "> **研究狀態**：已完成 NotebookLM 實際研究（動態讀取自 `reports/notebooklm_summary.md`）\n\n"
+        f"{summary_body}"
+    )
+
+    if not references_body:
+        references_body = "*(無額外參考文獻項目)*"
+
+    return {
+        "is_completed": True,
+        "section_9_1_md": section_9_1_md,
+        "references_md": references_body,
+    }
+
+
 def build_markdown_report(
     student_summary_df: Optional[pd.DataFrame] = None,
     flood_summary_df: Optional[pd.DataFrame] = None,
     diagnostics: Optional[Dict[str, Any]] = None,
     output_path: Optional[str] = None,
+    notebooklm_summary_path: Optional[str] = None,
 ) -> str:
     """
     Generate comprehensive, rigorous CRISP-DM research report Markdown in Traditional Chinese.
@@ -470,6 +601,10 @@ def build_markdown_report(
     student_table_md = _format_markdown_table_from_df(student_summary_df)
     flood_table_md = _format_markdown_table_from_df(flood_summary_df)
     diagnostics_table_md = _format_diagnostics_table(diagnostics)
+    notebooklm_data = _load_notebooklm_research(
+        summary_path=notebooklm_summary_path,
+        output_path=output_path,
+    )
 
     report_md = """# 大學「多元線性回歸 (Multiple Linear Regression)」專題研究報告
 ## 遵循 CRISP-DM 流程之特徵選擇、統計假設診斷與 95% 預測區間推論
@@ -712,28 +847,27 @@ def build_markdown_report(
 
 ---
 
-## 9. 真實研究紀錄待補項目 (User Action Items)
+## 9. 文獻探討與 AI 協作研究紀錄 (Literature Research & AI Collaboration Records)
 
-依據專題評分規範，本研究誠實保留真實研究紀錄之待補欄位，嚴禁使用虛構或預設示範文字充數：
+依據專題研究規範，本節整合 Google NotebookLM 真實文獻研究心得，並誠實保留尚未檢附之 AI 協作對話紀錄待補欄位（嚴禁使用虛構文字充數）：
 
-### 9.1 Google NotebookLM 研究摘要 (待使用者填寫)
-> [!IMPORTANT]
-> **操作說明**：
-> 請使用者依據 `docs/notebooklm_research_guide.md` 之指引，開啟 Google NotebookLM 並匯入作業指定之多篇線性回歸、特徵選擇與 CRISP-DM 網路文獻，針對研究主題進行提問探討後，將**真實產生之研究摘要（至少 100 字繁體中文）**貼入下方區塊：
+{{NOTEBOOKLM_SECTION_9_1}}
 
-```text
-[=== 待補欄位：請在此貼上您於 Google NotebookLM 產生的真實研究摘要文字（至少 100 字） ===]
-```
-
-### 9.2 ChatGPT / AI 協作對話紀錄 (待使用者檢附)
+### 9.2 ChatGPT / AI 協作對話紀錄 (待補：待使用者檢附)
 > [!NOTE]
-> **操作說明**：
-> 本次研究在架構規劃、程式碼除錯與統計檢定整合過程中獲得 AI 輔助。請依據 `docs/chatgpt_conversation_export_guide.md` 之說明，將您的完整對話匯出為 PDF 檔案，並儲存於：
+> **待補操作說明**：
+> 本次研究在架構規劃、程式碼除錯與統計檢定整合過程中獲得 AI 輔助。目前對話紀錄 PDF 仍保留待補，請依據 `docs/chatgpt_conversation_export_guide.md` 之說明，將您的完整對話匯出為 PDF 檔案，並儲存於：
 > `reports/ai_conversations/chatgpt_conversation_record.pdf`
 
 ---
 
-## 10. 附錄：可重現性設定與代碼結構
+## 10. 參考文獻 (References)
+
+{{NOTEBOOKLM_REFERENCES}}
+
+---
+
+## 11. 附錄：可重現性設定與代碼結構
 
 - **隨機種子 (Random State)**：所有切分與演算法統一固定為 `random_state=42`。
 - **訓練/測試比例**：`test_size=0.20`。
@@ -749,6 +883,8 @@ def build_markdown_report(
         "{{STUDENT_TABLE}}": student_table_md,
         "{{FLOOD_TABLE}}": flood_table_md,
         "{{DIAGNOSTICS_TABLE}}": diagnostics_table_md,
+        "{{NOTEBOOKLM_SECTION_9_1}}": notebooklm_data["section_9_1_md"],
+        "{{NOTEBOOKLM_REFERENCES}}": notebooklm_data["references_md"],
         "{{S_BASE_R2}}": s_base_r2,
         "{{S_BASE_RMSE}}": s_base_rmse,
         "{{S_BASE_MAE}}": s_base_mae,
@@ -1031,6 +1167,18 @@ def generate_pdf_report(md_content: str, output_pdf_path: str) -> str:
         text = re.sub(r"\\text\{([^}]+)\}", r"\1", text)
         text = re.sub(r"\$\$?", "", text)  # Strip math delimiters
 
+        # Normalize Markdown links [label](url) before HTML escaping
+        def _replace_md_link(match: re.Match) -> str:
+            label = match.group(1).strip()
+            url = match.group(2).strip()
+            if label == url or not label:
+                return url
+            if url.startswith(("http://", "https://")):
+                return f"{label} ({url})"
+            return label
+
+        text = re.sub(r"\[([^\[\]]+)\]\(([^()\s]+)\)", _replace_md_link, text)
+
         # Escape HTML entities
         text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         # Bold
@@ -1039,6 +1187,17 @@ def generate_pdf_report(md_content: str, output_pdf_path: str) -> str:
         text = re.sub(r"\*(.*?)\*", r"<i>\1</i>", text)
         # Inline code (using colored bold text with current font to preserve Chinese characters)
         text = re.sub(r"`(.*?)`", r'<b><font color="#3730A3">\1</font></b>', text)
+
+        # Turn bare http/https URLs into clickable PDF hyperlinks while keeping full URL text visible
+        def _linkify_url(match: re.Match) -> str:
+            raw_url = match.group(1)
+            trailing = ""
+            while raw_url and raw_url[-1] in ".,;:":
+                trailing = raw_url[-1] + trailing
+                raw_url = raw_url[:-1]
+            return f'<a href="{raw_url}" color="#1D4ED8">{raw_url}</a>{trailing}'
+
+        text = re.sub(r"(https?://[A-Za-z0-9._~:/?#=@&;+%,-]+)", _linkify_url, text)
         return text
 
     while i < len(lines):
@@ -1092,7 +1251,7 @@ def generate_pdf_report(md_content: str, output_pdf_path: str) -> str:
         if stripped.startswith("## "):
             sec_title = stripped[3:].strip()
             # Clean page breaks for major sections
-            if sec_title.startswith("6.") or sec_title.startswith("7.") or sec_title.startswith("9."):
+            if sec_title.startswith("6.") or sec_title.startswith("7.") or sec_title.startswith("9.") or sec_title.startswith("11."):
                 story.append(PageBreak())
             story.append(Paragraph(clean_inline_md(sec_title), h1_style))
             i += 1
@@ -1164,13 +1323,26 @@ def generate_pdf_report(md_content: str, output_pdf_path: str) -> str:
             i += 1
             continue
 
-        # Numbered list
+        # Numbered list (supports indented continuation lines such as reference URLs)
         num_match = re.match(r"^(\d+)\.\s+(.*)", stripped)
         if num_match:
             n_idx = num_match.group(1)
-            n_txt = clean_inline_md(num_match.group(2))
-            story.append(Paragraph(f"<b>{n_idx}.</b> {n_txt}", bullet_style))
+            item_parts = [clean_inline_md(num_match.group(2))]
             i += 1
+            while i < len(lines):
+                next_raw = lines[i]
+                next_stripped = next_raw.strip()
+                if (
+                    next_stripped
+                    and (next_raw.startswith("   ") or next_raw.startswith("  ") or next_raw.startswith("\t"))
+                    and not re.match(r"^(\d+\.\s+|[-*]\s+|```|\||#|---|\*\*\*|___|>\s*)", next_stripped)
+                ):
+                    item_parts.append(clean_inline_md(next_stripped))
+                    i += 1
+                else:
+                    break
+            joined_item = "<br/>".join(item_parts)
+            story.append(Paragraph(f"<b>{n_idx}.</b> {joined_item}", bullet_style))
             continue
 
         # Table Parsing

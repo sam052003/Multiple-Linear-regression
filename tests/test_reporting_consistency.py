@@ -40,6 +40,7 @@ def verify_production_deliverables_unmodified_by_pytest():
     target_files = [
         os.path.join(REPORTS_DIR, "final_report.md"),
         os.path.join(REPORTS_DIR, "final_report.pdf"),
+        os.path.join(REPORTS_DIR, "notebooklm_summary.md"),
         os.path.join(RESULTS_DIR, "student_feature_selection_comparison.csv"),
         os.path.join(RESULTS_DIR, "flood_feature_selection_comparison.csv"),
         os.path.join(RESULTS_DIR, "student_predictions_intervals.csv"),
@@ -163,9 +164,10 @@ def test_dynamic_report_with_custom_fixtures_and_no_stale_data():
         {"Method": "RFE (Wrapper)", "Features": 5, "R2": 0.712345, "Adj_R2": 0.710000, "RMSE": 1.567890, "MAE": 0.456789, "MSE": 2.458279, "Train_R2": 0.70, "CV_R2_Mean": 0.69, "Time_Sec": 0.222},
     ])
     md_a = build_markdown_report(student_summary_df=custom_df_a)
-    assert "0.812345" in md_a
-    assert "0.712345" in md_a
-    assert "0.769650" not in md_a  # Must not retain stale default number
+    dynamic_body_a = md_a.split("## 9.")[0]
+    assert "0.812345" in dynamic_body_a
+    assert "0.712345" in dynamic_body_a
+    assert "0.769650" not in dynamic_body_a  # Dynamic modeling sections must not retain stale default number
 
     custom_df_b = pd.DataFrame([
         {"Method": "Baseline (All Features)", "Features": 27, "R2": 0.923456, "Adj_R2": 0.920000, "RMSE": 0.987654, "MAE": 0.234567, "MSE": 0.975460, "Train_R2": 0.91, "CV_R2_Mean": 0.90, "Time_Sec": 0.333},
@@ -387,3 +389,201 @@ def test_official_production_pdf_matches_markdown_and_csv():
     assert "\\hat{\\beta}" not in full_text
     assert "\\sqrt{" not in full_text
     assert "\x00" not in full_text
+
+
+def test_notebooklm_summary_file_completed_and_valid():
+    """
+    Test 8: Verify reports/notebooklm_summary.md contains the actual user NotebookLM research,
+    marks status as completed, removes placeholders/samples, and lists the exact 6 sources.
+    """
+    summary_path = os.path.join(REPORTS_DIR, "notebooklm_summary.md")
+    assert os.path.exists(summary_path), "reports/notebooklm_summary.md must exist"
+
+    with open(summary_path, "r", encoding="utf-8") as f:
+        text = f.read()
+
+    assert "已完成 NotebookLM 實際研究" in text
+    assert "待填寫" not in text
+    assert "範例填寫結構參考" not in text
+    assert "[===" not in text
+
+    # Key research reflection statements
+    assert "本研究透過 Google NotebookLM 研讀 CRISP-DM、多元線性回歸及特徵選擇相關文獻" in text
+    assert "LassoCV 結合 L1 正則化與交叉驗證選擇懲罰參數 α，並不保證固定選取五個特徵" in text
+    assert "0.769650" in text and "0.666460" in text
+    assert "0.844545" in text and "0.180733" in text
+    assert "將前處理與特徵選擇整合進 Pipeline，使交叉驗證各折獨立擬合，降低資料洩漏風險" in text
+    assert "95% 信賴區間（CI）用於估計條件平均值，95% 預測區間（PI）則針對個別新觀測值" in text
+    assert "本研究的 Student 資料屬於合成資料，無法直接推論真實教育情境中的因果關係" in text
+
+    # Exact 6 references
+    expected_refs = [
+        "IBM CRISP-DM",
+        "https://www.ibm.com/docs/zh-tw/spss-modeler/saas?topic=dm-crisp-help-overview",
+        "Scikit-learn Feature Selection",
+        "https://scikit-learn.org/stable/modules/feature_selection.html",
+        "Scikit-learn Linear Models",
+        "https://scikit-learn.org/stable/modules/linear_model.html",
+        "Scikit-learn Common Pitfalls",
+        "https://scikit-learn.org/stable/common_pitfalls.html",
+        "Statsmodels get_prediction",
+        "https://www.statsmodels.org/stable/generated/statsmodels.regression.linear_model.RegressionResults.get_prediction.html",
+        "專案內部研究成果",
+        "reports/final_report.pdf",
+    ]
+    for item in expected_refs:
+        assert item in text, f"Expected reference item '{item}' missing from reports/notebooklm_summary.md"
+
+
+def test_build_markdown_report_integrates_real_notebooklm_and_references(
+    sample_student_summary, sample_flood_summary, sample_diagnostics
+):
+    """
+    Test 9: Verify build_markdown_report dynamically embeds Section 9.1 and Section 10 References
+    from reports/notebooklm_summary.md without side effects, removes '待填寫' for NotebookLM,
+    avoids circular self-citation, and keeps Section 9.2 ChatGPT PDF pending.
+    """
+    md = build_markdown_report(
+        student_summary_df=sample_student_summary,
+        flood_summary_df=sample_flood_summary,
+        diagnostics=sample_diagnostics,
+    )
+
+    assert "### 9.1" in md
+    assert "已完成 NotebookLM 實際研究" in md
+    assert "本研究透過 Google NotebookLM 研讀 CRISP-DM、多元線性回歸及特徵選擇相關文獻" in md
+    assert "LassoCV 結合 L1 正則化與交叉驗證選擇懲罰參數 α" in md
+    assert "95% 信賴區間（CI）用於估計條件平均值，95% 預測區間（PI）則針對個別新觀測值" in md
+    assert "待填寫" not in md
+    assert "[=== 待補欄位" not in md
+
+    # Section 9.2 must still honestly remain pending (待補)
+    sec_9_2 = md.split("### 9.2")[1].split("## 10.")[0]
+    assert "待補" in sec_9_2
+    assert "chatgpt_conversation_record.pdf" in sec_9_2
+
+    # Section 10 References must contain all 5 URLs and internal empirical cross-reference without self-citation loop
+    sec_10 = md.split("## 10. 參考文獻")[1].split("## 11.")[0]
+    assert "https://www.ibm.com/docs/zh-tw/spss-modeler/saas?topic=dm-crisp-help-overview" in sec_10
+    assert "https://scikit-learn.org/stable/modules/feature_selection.html" in sec_10
+    assert "https://scikit-learn.org/stable/modules/linear_model.html" in sec_10
+    assert "https://scikit-learn.org/stable/common_pitfalls.html" in sec_10
+    assert (
+        "https://www.statsmodels.org/stable/generated/statsmodels.regression.linear_model.RegressionResults.get_prediction.html"
+        in sec_10
+    )
+    assert "專案內部研究成果" in sec_10
+    assert "final_report.pdf" not in sec_10  # Must not circularly self-cite final_report.pdf inside final_report
+
+
+def test_missing_notebooklm_summary_fallback_and_anti_loop_guards(tmp_path):
+    """
+    Test 10: Verify missing NotebookLM file displays explicit pending notice,
+    and self-reference / full-report duplication attempts are blocked.
+    """
+    missing_path = str(tmp_path / "does_not_exist_notebooklm.md")
+    md_missing = build_markdown_report(notebooklm_summary_path=missing_path)
+    sec_9_1 = md_missing.split("### 9.1")[1].split("### 9.2")[0]
+    assert "待補" in sec_9_1
+    assert "尚未" in sec_9_1
+
+    # Self-reference guard: summary_path == output_path
+    same_path = str(tmp_path / "same_report.md")
+    with pytest.raises(ValueError, match="self-reference"):
+        build_markdown_report(output_path=same_path, notebooklm_summary_path=same_path)
+
+    # Self-reference guard: pointing to final_report.md
+    fake_final = tmp_path / "final_report.md"
+    fake_final.write_text("dummy", encoding="utf-8")
+    with pytest.raises(ValueError, match="self-reference"):
+        build_markdown_report(notebooklm_summary_path=str(fake_final))
+
+    # Full-report duplication guard
+    duplicated_report_file = tmp_path / "bad_summary.md"
+    duplicated_report_file.write_text(md_missing, encoding="utf-8")
+    with pytest.raises(ValueError, match="full research report"):
+        build_markdown_report(notebooklm_summary_path=str(duplicated_report_file))
+
+
+def test_repeated_report_generation_preserves_summary_without_loss_or_duplication(
+    tmp_path, sample_student_summary, sample_flood_summary, sample_diagnostics
+):
+    """
+    Test 11: Running report generation multiple times must never lose the NotebookLM summary
+    and must produce identical output without recursive growth.
+    """
+    summary_path = os.path.join(REPORTS_DIR, "notebooklm_summary.md")
+    summary_hash_before = get_file_hash(summary_path)
+
+    out_md = str(tmp_path / "repeated_final_report.md")
+    out_pdf = str(tmp_path / "repeated_final_report.pdf")
+
+    outputs = []
+    for _ in range(3):
+        md_out = build_markdown_report(
+            student_summary_df=sample_student_summary,
+            flood_summary_df=sample_flood_summary,
+            diagnostics=sample_diagnostics,
+            output_path=out_md,
+        )
+        generate_pdf_report(md_out, output_pdf_path=out_pdf)
+        outputs.append(md_out)
+
+    assert outputs[0] == outputs[1] == outputs[2]
+    assert "本研究透過 Google NotebookLM 研讀 CRISP-DM" in outputs[-1]
+    assert outputs[-1].count("### 9.1") == 1
+    assert get_file_hash(summary_path) == summary_hash_before
+
+
+def test_official_pdf_extracts_notebooklm_summary_and_references():
+    """
+    Test 12: Verify official reports/final_report.md and reports/final_report.pdf contain
+    the real NotebookLM research reflection, accurate numbered references with URLs,
+    no '待填寫', and pending Section 9.2.
+    """
+    prod_md_path = os.path.join(REPORTS_DIR, "final_report.md")
+    prod_pdf_path = os.path.join(REPORTS_DIR, "final_report.pdf")
+    assert os.path.exists(prod_md_path)
+    assert os.path.exists(prod_pdf_path)
+
+    with open(prod_md_path, "r", encoding="utf-8") as f:
+        md_text = f.read()
+
+    assert "已完成 NotebookLM 實際研究" in md_text
+    assert "本研究透過 Google NotebookLM 研讀 CRISP-DM" in md_text
+    assert "待填寫" not in md_text
+
+    with pdfplumber.open(prod_pdf_path) as pdf:
+        full_pdf_text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+        # Normalize line breaks within extracted text for URL verification
+        compact_pdf_text = "".join((page.extract_text() or "").replace("\n", "") for page in pdf.pages)
+
+    # Verify NotebookLM summary content in PDF
+    assert "Google NotebookLM" in full_pdf_text
+    assert "已完成 NotebookLM 實際研究" in full_pdf_text
+    assert "LassoCV" in full_pdf_text
+    assert "0.769650" in full_pdf_text
+    assert "0.666460" in full_pdf_text
+    assert "0.844545" in full_pdf_text
+    assert "0.180733" in full_pdf_text
+    assert "Pipeline" in full_pdf_text
+    assert "95% 信賴區間" in full_pdf_text
+    assert "95% 預測區間" in full_pdf_text
+    assert "合成資料" in full_pdf_text
+    assert "待填寫" not in full_pdf_text
+
+    # Verify Section 9.2 still retains 待補
+    assert "9.2 ChatGPT / AI 協作對話紀錄" in full_pdf_text
+    assert "待補" in full_pdf_text
+
+    # Verify all 5 external URLs and internal study item in PDF references
+    expected_urls = [
+        "https://www.ibm.com/docs/zh-tw/spss-modeler/saas?topic=dm-crisp-help-overview",
+        "https://scikit-learn.org/stable/modules/feature_selection.html",
+        "https://scikit-learn.org/stable/modules/linear_model.html",
+        "https://scikit-learn.org/stable/common_pitfalls.html",
+        "https://www.statsmodels.org/stable/generated/statsmodels.regression.linear_model.RegressionResults.get_prediction.html",
+    ]
+    for url in expected_urls:
+        assert url in compact_pdf_text, f"Reference URL '{url}' missing from official PDF!"
+    assert "專案內部研究成果" in full_pdf_text

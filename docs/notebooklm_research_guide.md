@@ -4,7 +4,7 @@
 > 老師要求使用 Google NotebookLM 研究同主題（Multiple Linear Regression, Feature Selection, CRISP-DM, Model Evaluation, Prediction Interval）之網路解法，並將至少 100 字摘要放入報告。
 > 
 > ⚠️ **注意事項**：
-> 本系統不得虛構或冒充您在 NotebookLM 的實際研究紀錄。請依照本指南完成操作後，將產生的真實摘要填入 [`reports/notebooklm_summary.md`](file:///c:/Users/sam98/Desktop/HW2-Multiple%20Linear%20regression/reports/notebooklm_summary.md)。
+> 本系統不得虛構或冒充您在 NotebookLM 的實際研究紀錄。請依照本指南完成操作後，將產生的真實摘要填入 [`reports/notebooklm_summary.md`](../reports/notebooklm_summary.md)。
 
 ---
 
@@ -56,8 +56,9 @@
 
 ---
 
-## 5. 填寫步驟
+## 5. 填寫與報告整合步驟
 完成 NotebookLM 研究後：
-1. 開啟專案內的 [`reports/notebooklm_summary.md`](file:///c:/Users/sam98/Desktop/HW2-Multiple%20Linear%20regression/reports/notebooklm_summary.md)。
-2. 將您的真實研究摘要貼入該檔案中指定區域。
-3. 重新執行 `python scripts/run_experiments.py` 即可自動同步更新至正式報告 PDF 與 Web Dashboard。
+1. 開啟專案內的 [`reports/notebooklm_summary.md`](../reports/notebooklm_summary.md)。
+2. 將您的真實研究摘要與參考來源填入該檔案。
+3. 重新執行 `python scripts/run_experiments.py --report-only`（或完整執行 `python scripts/run_experiments.py`）即可自動讀取 `reports/notebooklm_summary.md`，並同步更新獨立研究報告（`reports/final_report.md` 與 `reports/final_report.pdf`）。
+   - **架構邊界說明**：正式研究報告與公開網站完全分離；NotebookLM 研究摘要僅整合至離線獨立研究報告，不會顯示或同步至公開 Web Dashboard。

@@ -171,5 +171,61 @@ def run_all_experiments():
     print("==================================================")
 
 
+def rebuild_reports_only():
+    """
+    Rebuild reports/final_report.md and reports/final_report.pdf from existing
+    verified experiment CSVs, deterministic OLS diagnostics, and reports/notebooklm_summary.md
+    without altering existing experiment CSV files.
+    """
+    print("==================================================")
+    print("[START] Rebuilding Official Markdown & PDF Reports")
+    print("==================================================")
+
+    student_fs_path = os.path.join(RESULTS_DIR, "student_feature_selection_comparison.csv")
+    flood_fs_path = os.path.join(RESULTS_DIR, "flood_feature_selection_comparison.csv")
+    if not os.path.exists(student_fs_path) or not os.path.exists(flood_fs_path):
+        raise FileNotFoundError(
+            "Saved experiment CSVs not found in reports/results/. Run full scripts/run_experiments.py first."
+        )
+
+    student_fs_df = pd.read_csv(student_fs_path)
+    flood_fs_df = pd.read_csv(flood_fs_path)
+
+    df_student = load_student_performance()
+    student_artifacts = prepare_dataset(
+        df=df_student,
+        target_col="Exam_Score",
+        test_size=0.20,
+        random_state=42,
+    )
+    ols_student = OLSPredictionModel()
+    ols_student.fit(student_artifacts.X_train_proc, student_artifacts.y_train)
+    diagnostics = diagnose_regression_assumptions(
+        ols_results=ols_student.ols_results,
+        X_train=student_artifacts.X_train_proc,
+        y_train=student_artifacts.y_train,
+    )
+
+    report_md_path = os.path.join(REPORTS_DIR, "final_report.md")
+    md_content = build_markdown_report(
+        student_summary_df=student_fs_df,
+        flood_summary_df=flood_fs_df,
+        diagnostics=diagnostics,
+        output_path=report_md_path,
+    )
+    print(f"Saved final Markdown report to: {report_md_path}")
+
+    pdf_path = os.path.join(REPORTS_DIR, "final_report.pdf")
+    generate_pdf_report(md_content, output_pdf_path=pdf_path)
+    print(f"Saved final PDF report to: {pdf_path}")
+    print(f"PDF File Size: {os.path.getsize(pdf_path):,} bytes")
+    print("==================================================")
+    print("[DONE] Official Markdown & PDF Reports Updated!")
+    print("==================================================")
+
+
 if __name__ == "__main__":
-    run_all_experiments()
+    if "--report-only" in sys.argv:
+        rebuild_reports_only()
+    else:
+        run_all_experiments()
