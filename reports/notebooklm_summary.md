@@ -1,27 +1,37 @@
-# Google NotebookLM 研究摘要 (真實填寫處)
+# Google NotebookLM 文獻研究心得與參考來源
 
-> **作業規範提示**：
-> 老師要求使用 Google NotebookLM 研究同主題網路解法，並將**至少 100 字摘要**放入期末報告。
-> 本檔案保留給您填入親自操作 NotebookLM 產生的真實研究內容。請依據 [`docs/notebooklm_research_guide.md`](file:///c:/Users/sam98/Desktop/HW2-Multiple%20Linear%20regression/docs/notebooklm_research_guide.md) 的指引完成後貼入下方。
+> **研究狀態**：已完成 NotebookLM 實際研究
 
 ---
 
-## 狀態：待填寫 (User Action Required)
+## 研究心得摘要
 
-```markdown
-[=== 請將您在 NotebookLM 產生的真實研究摘要文字（至少 100 字）貼至此處 ===]
+本研究透過 Google NotebookLM 研讀 CRISP-DM、多元線性回歸及特徵選擇相關文獻，理解資料探勘的六階段流程，以及 Filter、Wrapper 與 Embedded 等方法的差異 [1, 2]。Scikit-learn 文件指出，LassoCV 結合 L1 正則化與交叉驗證選擇懲罰參數 α，並不保證固定選取五個特徵 [2, 3]。
 
-範例填寫結構參考：
-透過 Google NotebookLM 針對多元線性回歸、CRISP-DM 與特徵選擇之網路文獻進行研讀，主要收穫包括三點：
-第一，在區間估計方面，深入理解了「母體均值信賴區間 (CI)」與「新觀測值預測區間 (PI)」的本質分野。CI 僅衡量給定特徵下期望值的估計誤差，而 PI 則額外涵蓋單一觀測值本身的隨機擾動 (ε ~ N(0, σ²))，因此預測區間必定更為寬廣。
-第二，特徵選擇方法中，Filter 法 (SelectKBest) 雖快但忽略變數間交互作用；Wrapper 法 (RFE, SFS) 能直接考量模型預測反饋但計算代價高昂；Embedded 法 (Lasso) 能在連續凸優化中兼顧懲罰與篩選。
-第三，所有特徵縮放與選擇必須嚴格受限於訓練集內，並意識到回歸係數僅代表關聯強度而非因果效果。
-```
+實驗結果顯示，Student Performance 資料集的 Baseline 測試集 R² 為 0.769650，選取五個特徵後最佳 R² 降至 0.666460；Flood Probability 則由 0.844545 降至 0.180733 [6]。兩組結果顯示，特徵縮減不一定改善預測效能，其影響可能與資料中的訊號分布有關 [2, 6]。
+
+在方法論方面，官方文件建議將前處理與特徵選擇整合進 Pipeline，使交叉驗證各折獨立擬合，降低資料洩漏風險 [2, 4]。此外，95% 信賴區間（CI）用於估計條件平均值，95% 預測區間（PI）則針對個別新觀測值 [5]。
+
+本研究的 Student 資料屬於合成資料，無法直接推論真實教育情境中的因果關係 [6]。未來可改進交叉驗證 Pipeline，並加入非線性項與特徵交互作用，以進一步檢驗模型的預測能力 [3, 4, 6]。
 
 ---
 
-## 使用之 NotebookLM 來源清單
-1. Scikit-learn Linear Models User Guide (scikit-learn.org)
-2. Scikit-learn Feature Selection Documentation
-3. Statsmodels OLS get_prediction Documentation
-4. Kaggle Student Performance Factors Dataset Discussion
+## 參考文獻
+
+1. **IBM CRISP-DM**
+   https://www.ibm.com/docs/zh-tw/spss-modeler/saas?topic=dm-crisp-help-overview
+
+2. **Scikit-learn Feature Selection**
+   https://scikit-learn.org/stable/modules/feature_selection.html
+
+3. **Scikit-learn Linear Models**
+   https://scikit-learn.org/stable/modules/linear_model.html
+
+4. **Scikit-learn Common Pitfalls**
+   https://scikit-learn.org/stable/common_pitfalls.html
+
+5. **Statsmodels get_prediction**
+   https://www.statsmodels.org/stable/generated/statsmodels.regression.linear_model.RegressionResults.get_prediction.html
+
+6. **專案內部研究成果**
+   `reports/final_report.pdf`

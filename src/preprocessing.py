@@ -28,6 +28,9 @@ class PreprocessingArtifacts:
     preprocessor: ColumnTransformer
     test_size: float
     random_state: int
+    n_total_samples: int = 0
+    n_valid_target_samples: int = 0
+    n_dropped_target_samples: int = 0
 
 
 def prepare_dataset(
@@ -43,6 +46,13 @@ def prepare_dataset(
     Execute data preparation and train/test split strictly preventing data leakage.
     All transformers are fitted ONLY on training data.
     """
+    if target_col not in df.columns:
+        raise ValueError(f"模型訓練失敗：資料集中找不到目標變數欄位 '{target_col}'。")
+
+    n_total = len(df)
+    if n_total == 0:
+        raise ValueError("模型訓練失敗：提供之資料集筆數為 0，無法進行分析。")
+
     if excluded_cols is None:
         excluded_cols = []
 
@@ -56,21 +66,48 @@ def prepare_dataset(
         feature_cols = available_cols
 
     if not feature_cols:
-        raise ValueError("沒有可用的輸入特徵欄位！")
+        raise ValueError("模型訓練失敗：沒有可用的輸入特徵欄位，無法建立多元線性回歸模型。")
 
-    X = df[feature_cols].copy()
-    y = df[target_col].copy()
+    # Analyze and validate target column
+    y_raw = df[target_col]
+    y_num = pd.to_numeric(y_raw, errors="coerce")
+    n_valid = int(y_num.notna().sum())
+    n_dropped = n_total - n_valid
 
-    # Drop rows where target itself is NaN (cannot train or evaluate without ground truth)
-    valid_idx = y.notna()
-    X = X.loc[valid_idx]
-    y = y.loc[valid_idx]
+    # Check 1: 0 valid samples
+    if n_valid == 0:
+        raise ValueError(
+            f"模型訓練失敗：目前選取的目標欄位無法轉換為有效數值，{n_total} 筆資料中有 0 筆可用。請選擇適合回歸分析的數值欄位。"
+        )
 
-    # Convert y to float
-    y = pd.to_numeric(y, errors="coerce")
-    valid_y_idx = y.notna()
-    X = X.loc[valid_y_idx]
-    y = y.loc[valid_y_idx]
+    # Check 2: Categorical text masquerading as target or insufficient numeric ratio
+    if not pd.api.types.is_numeric_dtype(y_raw):
+        valid_ratio = n_valid / n_total
+        if valid_ratio < 0.8:
+            raise ValueError(
+                f"模型訓練失敗：此欄位屬於類別型目標變數，不適合目前的多元線性回歸模型。請選擇連續型數值目標欄位。（有效數值僅佔 {n_valid}/{n_total} 筆）"
+            )
+
+    # Filter to valid target rows
+    valid_idx = y_num.notna()
+    X = df.loc[valid_idx, feature_cols].copy()
+    y = y_num.loc[valid_idx].astype(float).copy()
+
+    # Check 3: Variance check on valid target values
+    unique_targets = y.nunique()
+    if unique_targets <= 1:
+        raise ValueError(f"模型訓練失敗：目標欄位 '{target_col}' 數值皆為常數（無變異性），無法建立回歸模型。")
+
+    if unique_targets == 2:
+        raise ValueError(
+            f"模型訓練失敗：此欄位屬於類別型目標變數（僅有 2 個唯一值，疑似二元分類標籤），不適合目前的多元線性回歸模型。請選擇連續型數值目標欄位。"
+        )
+
+    # Check 4: Minimum sample size
+    if n_valid < 10:
+        raise ValueError(
+            f"模型訓練失敗：有效目標變數筆數過少（僅 {n_valid} 筆可用，共 {n_total} 筆），排除無效 Target 後無法滿足回歸模型切分與訓練需求（至少需要 10 筆）。"
+        )
 
     # Identify numeric and categorical columns
     numeric_features = X.select_dtypes(include=[np.number]).columns.tolist()
@@ -140,4 +177,7 @@ def prepare_dataset(
         preprocessor=preprocessor,
         test_size=test_size,
         random_state=random_state,
+        n_total_samples=n_total,
+        n_valid_target_samples=n_valid,
+        n_dropped_target_samples=n_dropped,
     )

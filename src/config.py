@@ -86,7 +86,8 @@ FEATURE_SELECTION_METHODS = [
     FS_METHOD_PERMUTATION,
 ]
 
-# Security Limits
-MAX_UPLOAD_SIZE_MB = 20
+# Security & Vercel Serverless Limits
+MAX_UPLOAD_SIZE_MB = 4.5
+MAX_CUSTOM_DATASET_ROWS = 5000
 MAX_DOWNLOAD_TIMEOUT_SECONDS = 12
-BLOCKED_IP_PREFIXES = ("127.", "10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.2", "172.3", "192.168.", "0.0.0.0", "localhost")
+BLOCKED_IP_PREFIXES = ("127.", "10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.2", "172.3", "192.168.", "0.0.0.0", "localhost", "169.254.", "::1")
