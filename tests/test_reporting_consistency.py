@@ -42,6 +42,7 @@ def verify_production_deliverables_unmodified_by_pytest():
         os.path.join(REPORTS_DIR, "final_report.pdf"),
         os.path.join(RESULTS_DIR, "student_feature_selection_comparison.csv"),
         os.path.join(RESULTS_DIR, "flood_feature_selection_comparison.csv"),
+        os.path.join(RESULTS_DIR, "student_predictions_intervals.csv"),
     ]
     initial_hashes = {f: get_file_hash(f) for f in target_files if os.path.exists(f)}
 
@@ -175,6 +176,21 @@ def test_dynamic_report_with_custom_fixtures_and_no_stale_data():
     assert "0.823456" in md_b
     assert "0.812345" not in md_b  # Must not retain previous test numbers
 
+    # Test changing diagnostics: DW=1.2000 (positive autocorrelation) and VIF=8.5
+    custom_diag = {
+        "independence": {"metric_name": "DW", "value": 1.2000},
+        "multicollinearity": {"metric_name": "VIF", "value": 8.50},
+    }
+    md_diag = build_markdown_report(diagnostics=custom_diag)
+    assert "DW = 1.2000" in md_diag
+    assert "存在正自相關" in md_diag
+    assert "目前排序無相依" not in md_diag
+    assert "1.9541" not in md_diag
+    assert "8.50" in md_diag
+    assert "存在共線性疑慮" in md_diag
+    assert "優異受控" not in md_diag
+    assert "2.80" not in md_diag
+
 
 def test_diagnostics_p_value_responsiveness_and_dynamic_conclusions():
     """
@@ -219,20 +235,21 @@ def test_official_production_markdown_and_csv_consistency():
     with open(md_path, "r", encoding="utf-8") as f:
         md_text = f.read()
 
-    # Check 6 methods in Student table
+    # Check 6 methods in Student table and verify all metric numbers match CSV
     assert len(s_df) == 6, f"Expected 6 methods in Student CSV, got {len(s_df)}"
-    for method in s_df["Method"]:
+    for _, r in s_df.iterrows():
+        method = str(r["Method"])
         assert method in md_text, f"Student method '{method}' missing from final_report.md!"
+        assert f"{r['R2']:.6f}" in md_text, f"Student R2 {r['R2']:.6f} for {method} missing from final_report.md!"
+        assert f"{r['RMSE']:.6f}" in md_text, f"Student RMSE {r['RMSE']:.6f} for {method} missing from final_report.md!"
 
-    # Check 6 methods in Flood table
+    # Check 6 methods in Flood table and verify all metric numbers match CSV
     assert len(f_df) == 6, f"Expected 6 methods in Flood CSV, got {len(f_df)}"
-    for method in f_df["Method"]:
+    for _, r in f_df.iterrows():
+        method = str(r["Method"])
         assert method in md_text, f"Flood method '{method}' missing from final_report.md!"
-
-    # Check specific dynamic numbers in Student table
-    s_base = s_df[s_df["Method"].str.contains("Baseline")].iloc[0]
-    assert f"{s_base['R2']:.6f}" in md_text
-    assert f"{s_base['RMSE']:.6f}" in md_text
+        assert f"{r['R2']:.6f}" in md_text, f"Flood R2 {r['R2']:.6f} for {method} missing from final_report.md!"
+        assert f"{r['RMSE']:.6f}" in md_text, f"Flood RMSE {r['RMSE']:.6f} for {method} missing from final_report.md!"
 
     # Student Best K=5 must be Permutation Importance
     s_k5 = s_df[s_df["Features"] == 5].sort_values("R2", ascending=False).iloc[0]
@@ -249,6 +266,7 @@ def test_official_production_markdown_and_csv_consistency():
     assert "{{F_K5_R2}}" not in md_text
     assert "{{STUDENT_TABLE}}" not in md_text
     assert "{{FLOOD_TABLE}}" not in md_text
+    assert "{{DIAGNOSTICS_TABLE}}" not in md_text
 
 
 def test_academic_rigor_phrasing_in_report():
@@ -307,10 +325,65 @@ def test_pdf_report_compilation_and_layout_via_pdfplumber(tmp_path, sample_stude
     # Verify with pdfplumber
     with pdfplumber.open(out) as pdf:
         assert len(pdf.pages) >= 5
+        full_test_text = ""
         for p_idx, page in enumerate(pdf.pages):
             text = page.extract_text() or ""
+            full_test_text += "\n" + text
             assert "\x00" not in text, f"Missing glyph (null char) found on page {p_idx + 1}"
             assert text.count("$") == 0, f"Raw $ delimiter found on page {p_idx + 1}"
             assert "\\text{" not in text, f"Raw \\text found on page {p_idx + 1}"
             assert "\\hat{\\beta}" not in text, f"Raw \\hat{{\\beta}} found on page {p_idx + 1}"
             assert "\\sqrt" not in text, f"Raw \\sqrt found on page {p_idx + 1}"
+
+        # Mathematical formulas and key terms must be extracted properly without raw LaTeX
+        assert "CI" in full_test_text
+        assert "PI" in full_test_text
+        assert "β_hat" in full_test_text
+        assert "x_0" in full_test_text
+
+
+def test_official_production_pdf_matches_markdown_and_csv():
+    """
+    Test 7: Verify official reports/final_report.pdf matches CSV and Markdown deliverables,
+    containing all 6 methods and correct metrics extracted via pdfplumber.
+    """
+    prod_pdf_path = os.path.join(REPORTS_DIR, "final_report.pdf")
+    s_csv_path = os.path.join(RESULTS_DIR, "student_feature_selection_comparison.csv")
+    f_csv_path = os.path.join(RESULTS_DIR, "flood_feature_selection_comparison.csv")
+
+    if not os.path.exists(prod_pdf_path) or not os.path.exists(s_csv_path) or not os.path.exists(f_csv_path):
+        pytest.skip("Production deliverables missing.")
+
+    s_df = pd.read_csv(s_csv_path)
+    f_df = pd.read_csv(f_csv_path)
+
+    all_table_methods = []
+    with pdfplumber.open(prod_pdf_path) as pdf:
+        assert len(pdf.pages) >= 10, f"Expected publication PDF >= 10 pages, got {len(pdf.pages)}"
+        full_text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+        for page in pdf.pages:
+            tables = page.extract_tables()
+            for table in tables:
+                for row in table:
+                    if row and row[0]:
+                        cell_clean = " ".join(row[0].split())
+                        all_table_methods.append(cell_clean)
+
+    # Check 6 methods in PDF table cells
+    for method in s_df["Method"]:
+        assert any(method in cell for cell in all_table_methods), f"Student method '{method}' not found in official PDF tables!"
+    for method in f_df["Method"]:
+        assert any(method in cell for cell in all_table_methods), f"Flood method '{method}' not found in official PDF tables!"
+
+    # Check best K=5 R2 in PDF text
+    s_k5 = s_df[s_df["Features"] == 5].sort_values("R2", ascending=False).iloc[0]
+    assert f"{s_k5['R2']:.6f}" in full_text, f"Student best K=5 R2 {s_k5['R2']:.6f} missing from official PDF!"
+
+    f_k5 = f_df[f_df["Features"] == 5].sort_values("R2", ascending=False).iloc[0]
+    assert f"{f_k5['R2']:.6f}" in full_text, f"Flood best K=5 R2 {f_k5['R2']:.6f} missing from official PDF!"
+
+    # Verify no raw LaTeX leaks
+    assert "\\text{" not in full_text
+    assert "\\hat{\\beta}" not in full_text
+    assert "\\sqrt{" not in full_text
+    assert "\x00" not in full_text

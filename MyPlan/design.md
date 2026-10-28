@@ -1021,7 +1021,7 @@ FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamli
   - PDF 頁面審查：共 12 頁，各頁面均具備動態頁碼與頁首，文字、表格、圖表與公式排列美觀。
 
 ### 2026-10-28: Report Test Side Effects Elimination & Full 6-Method Deliverables Restoration (報告測試副作用根除與完整六方法結果恢復)
-- **進度**：徹底確認並解決測試覆寫正式報告之副作用問題；解耦報告產生字串與檔案寫入流程；透過真實離線實驗管線 (`scripts/run_experiments.py`) 重新產生完整 6 方法實驗比較表與出版級 PDF；強化動態 p-value 反應性、PDF 結構性檢定與 pytest 前後正式檔案雜湊值零變動自動化驗證；完成完整 pytest (51 項 100% 通過) 與 Next.js 生產構建驗收。
+- **進度**：徹底確認並解決測試覆寫正式報告之副作用問題；解耦報告產生字串與檔案寫入流程；透過真實離線實驗管線 (`scripts/run_experiments.py`) 重新產生完整 6 方法實驗比較表與出版級 PDF；強化動態 p-value 反應性、PDF 結構性表格檢定與 pytest 前後正式檔案雜湊值零變動自動化驗證；完成完整 pytest (52 項 100% 通過) 與 Next.js 生產構建驗收。
 - **問題根因分析 (Root Cause Confirmation)**：
   1. `src/reporting.py:build_markdown_report()` 原始實作在每次被呼叫時均無條件向正式路徑 `reports/final_report.md` 寫入內容。
   2. `tests/test_reporting_consistency.py`（以及 `tests/test_api.py`）使用局部 mock fixtures（Student 僅 2 種方法，Flood 僅 1 種方法 Baseline）進行報告格式化測試，導致每次執行 pytest 時，正式成果報告遭到少量 fixture 覆寫，比較表發生嚴重截斷。
@@ -1036,7 +1036,7 @@ FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamli
   3. **動態假說檢定與 p-value 反應性**：
      - 重構 `_format_diagnostics_table()`，依據傳入之實際檢定統計量與 p-value 動態切換結論與判讀依據。當 $p < 0.05$ 時顯示「$p < 0.05$」並判定「顯著拒絕同質變異」；當 $p \ge 0.05$ 時顯示「$p \ge 0.05$」並判定「未拒絕同質變異虛無假設」，杜絕靜態錯誤文字殘留。
   4. **報告內文全動態指標綁定**：
-     - 報告第 4.5 節之文字與標題改採 `{{S_BASE_R2}}` 與 `{{S_K5_R2}}` 動態變數，確保更換測試資料或自訂 DataFrame 時，不殘留任何舊數據（如 0.769650 或 0.6647）。
+     - 報告摘要與第 4.5 節改採 `{{S_BASE_R2}}`, `{{S_K5_METHOD}}`, `{{S_K5_R2}}`, `{{S_K5_LOSS}}`, `{{F_BASE_R2}}`, `{{F_K5_METHOD}}`, `{{F_K5_R2}}` 動態變數，確保更換測試資料或自訂 DataFrame 時，不殘留任何舊數據或過期結論。
 - **完整研究結果恢復 (Official Deliverables Restored)**：
   - 執行真實 `scripts/run_experiments.py`，完整生成正式結果：
     - **Student 表**：包含完整 6 個方法：
@@ -1056,8 +1056,8 @@ FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamli
     - **Lasso 呈現誠實原則**：Student 保留 27 特徵，Flood 保留 20 特徵，按實際 L1 正則化篩選結果呈現，不假裝固定 K=5。
     - **無任何「尚未計算」或未替換佔位符**：全數動態填充完備。
 - **自動化測試強化與驗收結論 (Verification & Acceptance)**：
-  1. `verify_production_deliverables_unmodified_by_pytest`：Session 級 autouse fixture 自動驗證 `reports/final_report.md`、`reports/final_report.pdf`、`student_feature_selection_comparison.csv`、`flood_feature_selection_comparison.csv` 在 pytest 前後 SHA-256 雜湊值 100% 相同。
-  2. `pytest tests/ -v`：**51 passed, 0 failed** (100% 通過，歷時 16.12s)。
+  1. `verify_production_deliverables_unmodified_by_pytest`：Session 級 autouse fixture 自動驗證 `reports/final_report.md`、`reports/final_report.pdf`、`student_feature_selection_comparison.csv`、`flood_feature_selection_comparison.csv`、`student_predictions_intervals.csv` 在 pytest 前後 SHA-256 雜湊值 100% 相同（實測 Matches: True）。
+  2. `pytest tests/ -v`：**52 passed, 0 failed** (100% 通過，包含 7 項報告一致性、動態 p-value 反應性、無殘留舊資料、PDF extract_tables 結構性表格檢定)。
   3. `pdfplumber` 檢查：12 頁 PDF 內容與 Markdown 表格 6 方法完全相符，無 LaTeX 洩漏、無空白字元。
   4. `npm run build`：Next.js 生產構建成功，4/4 靜態頁面生成無誤。
 

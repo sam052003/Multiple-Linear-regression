@@ -442,11 +442,12 @@ def build_markdown_report(
             s_k5_method = str(s_best_k5["Method"])
             s_k5_r2 = f"{s_best_k5['R2']:.6f}"
             s_k5_retention = f"{(float(s_best_k5['R2']) / float(s_base['R2'])) * 100:.1f}%"
+            s_k5_loss = f"{(float(s_base['R2']) - float(s_best_k5['R2'])) * 100:.1f}%"
         else:
-            s_k5_method, s_k5_r2, s_k5_retention = "K=5 特徵子集", "尚未計算", "尚未計算"
+            s_k5_method, s_k5_r2, s_k5_retention, s_k5_loss = "K=5 特徵子集", "尚未計算", "尚未計算", "尚未計算"
     else:
         s_base_r2, s_base_rmse, s_base_mae = "尚未計算", "尚未計算", "尚未計算"
-        s_k5_method, s_k5_r2, s_k5_retention = "K=5 特徵子集", "尚未計算", "尚未計算"
+        s_k5_method, s_k5_r2, s_k5_retention, s_k5_loss = "K=5 特徵子集", "尚未計算", "尚未計算", "尚未計算"
 
     if flood_summary_df is not None and not flood_summary_df.empty:
         f_base = flood_summary_df[flood_summary_df["Method"].str.contains("Baseline")].iloc[0]
@@ -492,7 +493,7 @@ def build_markdown_report(
 1. **基準模型可重現性**：Student Performance Baseline 測試集決定係數實測重現為 **R² = {{S_BASE_R2}}**（RMSE = {{S_BASE_RMSE}}，MAE = {{S_BASE_MAE}}）；Flood Probability Baseline 測試集決定係數實測重現為 **R² = {{F_BASE_R2}}**（RMSE = {{F_BASE_RMSE}}，MAE = {{F_BASE_MAE}}）。
 2. **Lasso 保留全部特徵之統計本質**：在 N = 5,285 的充沛訓練樣本下，5 折交叉驗證選定之最優懲罰參數極小（α = 0.002271），所有 27 個編碼特徵之回歸係數絕對值均大於數值截斷閥值 10⁻⁵。實證揭露：在大樣本下殘差平方和梯度主導了目標函數，即使微弱預測力之變數亦能使交叉驗證 MSE 微幅下降，故未被 L1 懲罰完全歸零。
 3. **特徵排序與評估準則之分歧**：實證推翻了「特定三項特徵在所有方法中均排名前三」的假設。研究顯示 `Attendance`（出席率）與 `Hours_Studied`（學習時數）在所有演算法中穩居前二名；但第三名特徵因演算法目標函數而顯著分歧：單變量 Filter 依據無條件相關性挑選 `Previous_Scores`，而多變量回歸 Wrapper (RFE) 與 Lasso 則因多變量條件回歸中，類別虛擬變數基準組位移幅度較大，優先保留了 `Access_to_Resources_Low` 與 `Parental_Involvement_Low`，完全剔除了 `Previous_Scores`。
-4. **特徵縮減之訊號結構對比**：在 Student 資料集中，將特徵由 27 個降至 5 個時，最佳子集測試集 R² 為 {{S_K5_R2}}（解釋力保留率 {{S_K5_RETENTION}}），主因訊號高度集中於核心行為特徵；但在 Flood 資料集中，特徵由 20 個降至 5 個時，測試集 R² 跌至 {{F_K5_R2}}（解釋力保留率僅 {{F_K5_RETENTION}}），實證確認了在廣泛分散型訊號架構下激進的特徵縮減將招致嚴重的遺漏變數偏差。
+4. **特徵縮減之訊號結構對比**：在 Student 資料集中，將特徵由 27 個降至 5 個時，最佳子集（{{S_K5_METHOD}}）測試集 R² 為 {{S_K5_R2}}（解釋力保留率 {{S_K5_RETENTION}}），主因訊號高度集中於核心行為特徵；但在 Flood 資料集中，特徵由 20 個降至 5 個時，最佳子集（{{F_K5_METHOD}}）測試集 R² 跌至 {{F_K5_R2}}（解釋力保留率僅 {{F_K5_RETENTION}}），實證確認了在廣泛分散型訊號架構下激進的特徵縮減將招致嚴重的遺漏變數偏差。
 5. **95% 預測區間與統計診斷界限**：實證解析母體均值信賴區間 (CI，平均寬度 0.5913) 與個別觀測值預測區間 (PI，平均寬度 8.2190) 之 13.9 倍本質差異。回歸五大假設診斷客觀揭露殘差常態性因成績界限截斷而遭拒絕，並指出大樣本中央極限定理 (CLT) 雖保障參數漸近常態，但不保證單一個體預測區間在厚尾下的絕對有效性。
 
 ---
@@ -622,7 +623,7 @@ def build_markdown_report(
    Filter、RFE 與 SFS 是在演算法外部**強加固定特徵數預算 (K = 5)** 之約束；而標準 LassoCV 是以**預測誤差最小化**為目標之資料驅動內嵌法。兩者定義規則不同，忠實反映了統計正則化與啟發式特徵修剪的本質歧異。
 
 ### 4.5 深度科學探討二：為何特徵縮減導致 R² 由 {{S_BASE_R2}} 下降至 {{S_K5_R2}}？
-實務界常有迷思，誤以為「特徵選擇一定能提高測試集 R²」。本實驗清晰證實：**在當前資料集中，將特徵數由全特徵縮減至 5，測試集 R² 必然發生顯著下降（由 {{S_BASE_R2}} 跌至 {{S_K5_R2}}，淨損失約 10.3% 的解釋力）**。其統計學與機器學習理論解析如下：
+實務界常有迷思，誤以為「特徵選擇一定能提高測試集 R²」。本實驗清晰證實：**在當前資料集中，將特徵數由全特徵縮減至 5，測試集 R² 必然發生顯著下降（由 {{S_BASE_R2}} 跌至 {{S_K5_R2}}，淨損失約 {{S_K5_LOSS}} 的解釋力）**。其統計學與機器學習理論解析如下：
 
 1. **多元回歸判定係數之單調性定理**：
    在樣本容量固定下，向線性回歸模型新增任何一個樣本偏相關係數不為零之變數，其決定係數 R² 在數學上必然非減。被剔除的特徵並非純隨機白噪音，而是具備統計顯著之微弱偏相關。移除這些特徵，等同於直接截斷了模型對該部分變異的解釋能力。
@@ -754,6 +755,7 @@ def build_markdown_report(
         "{{S_K5_METHOD}}": s_k5_method,
         "{{S_K5_R2}}": s_k5_r2,
         "{{S_K5_RETENTION}}": s_k5_retention,
+        "{{S_K5_LOSS}}": s_k5_loss,
         "{{F_BASE_R2}}": f_base_r2,
         "{{F_BASE_RMSE}}": f_base_rmse,
         "{{F_BASE_MAE}}": f_base_mae,
