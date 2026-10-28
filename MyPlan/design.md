@@ -1085,3 +1085,28 @@ FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamli
   2. **PDF 位置與品質確認**：最終 `reports/final_report.pdf` 共 13 頁；第 9.1 節（NotebookLM 文獻研究心得）、第 9.2 節（AI 對話紀錄待補說明）與第 10 節（6 項參考文獻與 5 組可點擊網址）完整呈現於 **第 9 頁**，全文件 0 缺字、0 LaTeX 殘留、無邊界溢位。
   3. **自動化測試**：`pytest tests/ -v` **57 passed, 0 failed**（包含真實摘要整合、缺檔回退、防自我引用迴圈、連續重跑冪等性、PDF 文字與網址抽取、以及正式產出物 SHA-256 零變動驗證）。
   4. **前端編譯**：`npm run build` 100% 通過，公開網站與公開 API 零修改。
+
+
+### 2026-10-28: Final GitHub README, Live Demo Verification, Real System Screenshots & Submission Preparation (最終 GitHub 展示與繳交整備)
+- **進度**：完成根目錄 `README.md` 最終完善（新增 Live Demo、Screenshots、Key Features、Research Results、Project Deliverables、Documentation Links 並更新 `pytest` 徽章為 `57 passed`）；透過本機實際執行之 Next.js 14 + FastAPI 服務與 Headless Chrome 擷取全部 6 張高清 2x Retina 系統截圖；更新 `assets/screenshots/README.md` 為 Next.js／Vercel 架構說明；新增 `docs/submission_checklist.md` 彙整所有核心與可選繳交項目狀態；完成連結完整性、`pytest` 與 `npm run build` 驗收。
+- **各項交付成果與驗證紀錄**：
+  1. **Vercel Live Demo 真實可訪問性檢驗**：
+     - 專案穩定網域（Production Alias）：`https://multiple-linear-regression-zeta.vercel.app/`，外部免登入請求首頁回傳 HTTP `200`；惟因最新 `migration/vercel` 分支依合併前規範尚未執行 Production Deployment（未合併 `main`），該網域目前仍指向初始部署版本（`/api/health` 回傳 HTTP `500`，待 PR 合併至 `main` 觸發正式部署後即自動升級為 `v2.0.0` 正常服務）。
+     - 最新分支預覽網域（Preview Deployment）：`https://multiple-linear-regression-6vvr46i3k-cwa-weather-project.vercel.app/`，部署狀態為 `● Ready` 且經 `vercel curl /api/health` 驗證回傳 `200 OK`（`{"status":"ok","version":"2.0.0"}`），但受 Vercel Standard Deployment Protection 保護，未登入團隊帳號之外部訪客會導向 Vercel SSO（HTTP `302`）。
+     - 於 `README.md` 誠實完整揭露上述雙網域實測狀態，絕不將需 SSO 登入或待合併更新之網址誇大為已無限制公開之最終版。
+  2. **6 張真實系統畫面截圖 (`assets/screenshots/`)**：
+     - 以 `Student Performance`（6,607 筆、19 個原始特徵）及自訂資料集模組實際執行並擷取 2x 高解析度 PNG（零私人資料、零 API Key、無裁切重要資訊）：
+       1. `01_overview.png`（1440×1331 @2x）：問題理解、14~39 特徵合規標章、Target 指定面板與前 10 筆預覽。
+       2. `02_data_understanding.png`（1440×1362 @2x）：目標變數統計、缺失值品質表與皮爾森相關係數互動圖。
+       3. `03_feature_selection.png`（1440×1633 @2x）：Baseline 與 5 種特徵選擇演算法之完整 6 列比較表、分組長條圖與 Top-5 特徵子集。
+       4. `04_evaluation.png`（1440×1915 @2x）：測試集指標（R² `76.96%`、RMSE `1.804`）、95% CI vs. 95% PI 帶狀圖、殘差散佈圖與 Breusch-Pagan 同質變異檢定。
+       5. `05_prediction.png`（1440×1083 @2x）：單筆互動預測結果（點預測 `67.120`、95% CI `[66.870, 67.371]`、95% PI `[63.014, 71.227]`）與 CSV 匯出按鈕。
+       6. `06_custom_dataset.png`（1440×960 @2x）：自訂資料集載入視窗（本機 CSV 上傳預讀欄位／Target 推薦與公開 HTTPS 網址分頁）。
+     - 同步更新 `assets/screenshots/README.md`，移除舊版 Streamlit（`8501`）操作指引，改為 Next.js 14（`3000`）+ FastAPI（`8000`）說明與完整 7 張研究圖表索引。
+  3. **可選繳交項目盤點 (`docs/submission_checklist.md`)**：
+     - 完整核對研究報告（`reports/final_report.pdf`、`reports/final_report.md`）、實驗 Notebook（`student_performance_analysis.ipynb`、`flood_prediction_analysis.ipynb`）、NotebookLM 研究心得（`reports/notebooklm_summary.md`）與 7 張研究圖表（`reports/figures/*.png`）均已完成。
+     - `reports/ai_conversations/` 下之 ChatGPT 原始對話紀錄 PDF 誠實標示為「**待使用者匯入**」，保留匯出指南與目標路徑 `reports/ai_conversations/chatgpt_conversation_record.pdf`，不虛構任何對話內容。
+  4. **自動化測試與連結檢查**：
+     - 相對路徑驗證：`README.md`、`assets/screenshots/README.md`、`docs/submission_checklist.md` 所有相對檔案與圖片路徑 100% 存在且非空。
+     - 後端與報告測試：`pytest tests/ -v` **57 passed, 0 failed**（正式報告與實驗 CSV SHA-256 零變動）。
+     - 前端生產編譯：`npm run build` 100% 通過，公開網站與公開 API 零修改。
