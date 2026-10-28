@@ -1,8 +1,8 @@
-# 大學「多元線性回歸 (Multiple Linear Regression)」專題研究報告
+# 碩士班課程 HW2 — 多元線性回歸專題研究報告
 ## 遵循 CRISP-DM 流程之特徵選擇、統計假設診斷與 95% 預測區間推論
 
-> **課程名稱**：機器學習與統計數據分析  
-> **作業項目**：HW2 — Multiple Linear Regression Academic Research Report  
+> **課程層級**：碩士班課程作業（Graduate-Level Course Project）  
+> **作業項目**：HW2 — Multiple Linear Regression Research Report  
 > **研究代碼庫**：[https://github.com/sam052003/Multiple-Linear-regression](https://github.com/sam052003/Multiple-Linear-regression)  
 > **分支**：`migration/vercel`  
 > **實驗環境**：Python 3.14 / Scikit-learn 1.6 / Statsmodels 0.14 / ReportLab 5.1  

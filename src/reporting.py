@@ -464,7 +464,9 @@ def _load_notebooklm_research(
         raw_content = f.read()
 
     if (
-        "# 大學「多元線性回歸" in raw_content
+        "# 碩士班課程 HW2 — 多元線性回歸" in raw_content
+        or "# 大學「多元線性回歸" in raw_content
+        or "# 大學『多元線性回歸" in raw_content
         or ("## 1. 商業與研究問題理解" in raw_content and "## 4. 模型建立與特徵選擇實驗" in raw_content)
     ):
         raise ValueError(
@@ -606,11 +608,11 @@ def build_markdown_report(
         output_path=output_path,
     )
 
-    report_md = """# 大學「多元線性回歸 (Multiple Linear Regression)」專題研究報告
+    report_md = """# 碩士班課程 HW2 — 多元線性回歸專題研究報告
 ## 遵循 CRISP-DM 流程之特徵選擇、統計假設診斷與 95% 預測區間推論
 
-> **課程名稱**：機器學習與統計數據分析  
-> **作業項目**：HW2 — Multiple Linear Regression Academic Research Report  
+> **課程層級**：碩士班課程作業（Graduate-Level Course Project）  
+> **作業項目**：HW2 — Multiple Linear Regression Research Report  
 > **研究代碼庫**：[https://github.com/sam052003/Multiple-Linear-regression](https://github.com/sam052003/Multiple-Linear-regression)  
 > **分支**：`migration/vercel`  
 > **實驗環境**：Python 3.14 / Scikit-learn 1.6 / Statsmodels 0.14 / ReportLab 5.1  
@@ -994,7 +996,7 @@ def generate_pdf_report(md_content: str, output_pdf_path: str) -> str:
             self.setFillColor(colors.HexColor("#64748B"))
             # Running header (pages > 1)
             if self._pageNumber > 1:
-                self.drawString(40, 755, "HW2 — CRISP-DM 多元線性回歸專題研究報告")
+                self.drawString(40, 755, "碩士班課程 HW2 — CRISP-DM 多元線性回歸專題研究報告")
                 self.setStrokeColor(colors.HexColor("#CBD5E1"))
                 self.setLineWidth(0.5)
                 self.line(40, 750, 612 - 40, 750)
@@ -1002,7 +1004,7 @@ def generate_pdf_report(md_content: str, output_pdf_path: str) -> str:
             # Running footer
             footer_text = f"第 {self._pageNumber} 頁 / 共 {page_count} 頁"
             self.drawRightString(612 - 40, 25, footer_text)
-            self.drawString(40, 25, "國立大學 機器學習與統計數據分析課程")
+            self.drawString(40, 25, "碩士班課程｜多元線性回歸專題研究")
             self.setStrokeColor(colors.HexColor("#CBD5E1"))
             self.setLineWidth(0.5)
             self.line(40, 36, 612 - 40, 36)

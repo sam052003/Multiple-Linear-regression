@@ -1,6 +1,6 @@
 # HW2 作業成果與可選繳交資料檢查清單 (Submission Checklist)
 
-本文件彙整 **HW2 — 多元線性回歸與特徵選擇（Multiple Linear Regression & Feature Selection）** 專案內所有核心成果與可選繳交項目之檔案位置、驗證方式與目前完成狀態。
+本文件彙整碩士班課程作業（Graduate-Level Course Project）**HW2 — 多元線性回歸與特徵選擇（Multiple Linear Regression & Feature Selection）** 專案內所有核心成果與可選繳交項目之檔案位置、驗證方式與目前完成狀態。
 
 > [!IMPORTANT]
 > **架構分離原則**：公開互動式網站（Next.js 14 + FastAPI）僅提供即時回歸建模與視覺化診斷；正式學術研究報告、NotebookLM 研究心得、實驗 Notebook 與 AI 開發對話紀錄均作為 GitHub Repository 獨立檔案維護，不暴露於公開網站介面或公開 API。
@@ -55,7 +55,7 @@
 ## 4. 自動化驗證指令
 
 ```powershell
-# 1. 執行完整 Python 單元測試、API 整合測試與報告無副作用驗證（57 passed）
+# 1. 執行完整 Python 單元測試、API 整合測試與報告無副作用驗證（58 passed）
 pytest tests/ -v
 
 # 2. 驗證 Next.js 14 前端型別檢查與生產環境建置

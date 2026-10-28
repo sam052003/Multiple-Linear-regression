@@ -2,17 +2,18 @@
 
 > **專案名稱**：Multiple Linear Regression Dashboard  
 > **網站副標題**：Interactive Regression Analysis with CRISP-DM and Feature Selection  
+> **課程層級定位**：碩士班課程作業（Graduate-Level Course Project — HW2）  
 > **GitHub Repository**：[https://github.com/sam052003/Multiple-Linear-regression.git](https://github.com/sam052003/Multiple-Linear-regression.git)  
-> **主要開發語言與框架**：Python 3.12+ / 3.14, Streamlit, Scikit-learn, Statsmodels, Plotly  
-> **狀態**：開發中 (Phase 1 啟動)  
-> **最後更新時間**：2026-10-27  
+> **主要開發語言與框架**：Python 3.12+ / 3.14, Next.js 14, FastAPI, Scikit-learn, Statsmodels, Plotly  
+> **狀態**：已完成最終驗收與繳交整備 (`migration/vercel`)  
+> **最後更新時間**：2026-10-28  
 
 ---
 
 ## 1. Project Overview (專案概述)
 
 ### 1.1 專案背景與目標
-本專案為大學「多元線性回歸 (Multiple Linear Regression, MLR)」進階課程作業，目標是建構一個遵循 **CRISP-DM (Cross-Industry Standard Process for Data Mining)** 完整生命週期的互動式機器學習與統計分析 Web 應用程式。
+本專案為碩士班課程作業（Graduate-Level Course Project）——「HW2 多元線性回歸 (Multiple Linear Regression, MLR)」專題研究，目標是建構一個遵循 **CRISP-DM (Cross-Industry Standard Process for Data Mining)** 完整生命週期的互動式機器學習與統計分析 Web 應用程式，並產出獨立之嚴謹學術專題研究報告。
 
 本系統不只是單純展示 Linear Regression 的最終結果，更提供完整的工作流程：從商業與研究問題理解、資料探索 (EDA) 與資料品質檢查、防止資料洩漏 (Data Leakage) 的前處理 Pipeline、5 種主流特徵選擇 (Feature Selection) 比較、統計回歸模型訓練、回歸五大統計假設診斷、95% 預測區間 (Prediction Interval) 推論，到單筆樣本互動式預測與綜合報告產出。
 
@@ -548,7 +549,7 @@ HW2-Multiple Linear regression/
 - **完成項目**：
   1. 撰寫專業正式之 `README.md`，涵蓋三大 Problems、五大特徵選擇、CRISP-DM 流程、真實實驗數字、架構連結與本機/雲端部署指南。
   2. 撰寫可重現之 Jupyter Notebooks：`notebooks/student_performance_analysis.ipynb` 與 `notebooks/flood_prediction_analysis.ipynb`。
-  3. 實作自動化批次實驗腳本 `scripts/run_experiments.py`，產出 `reports/results/` 下之指標與預測 CSV、`reports/figures/` 下之靜態論文成果圖表，並編譯正式報告 Markdown 與 PDF。
+  3. 實作自動化批次實驗腳本 `scripts/run_experiments.py`，產出 `reports/results/` 下之指標與預測 CSV、`reports/figures/` 下之靜態研究報告成果圖表，並編譯正式報告 Markdown 與 PDF。
   4. 產出 `docs/notebooklm_research_guide.md` 與待填寫模板 `reports/notebooklm_summary.md`。
   5. 產出 `docs/chatgpt_conversation_export_guide.md` 與對話 PDF 存放目錄 `reports/ai_conversations/`。
   6. 產出 `docs/deployment.md` 雲端一鍵部署手冊與 `docs/methodology.md` 統計理論手冊。
@@ -813,13 +814,13 @@ FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamli
     7. `POST /api/predict`：即時推論輸出點估計、95% CI 與 95% PI，嚴格驗證 PI 寬於 CI。
     8. `POST /api/datasets/upload`：自訂 CSV 上傳、無狀態模型訓練與互動預測完整閉環。
     9. `GET /api/reports/markdown`：完整 Markdown 綜合報告成功讀取 (4,972 字元)。
-    10. `GET /api/reports/pdf`：正式研究論文 PDF 檔案成功下載 (6,484 位元組)。
+    10. `GET /api/reports/pdf`：正式研究報告 PDF 檔案成功下載 (6,484 位元組)。
     11. `GET /api/reports/download-results`：Metrics CSV (123,899 bytes) 與 Features CSV (2,715 bytes) 下載成功。
 ### 2026-10-27: UI Localization & Independent Report Architecture (繁體中文介面與獨立報告架構調整)
 - **進度**：全站繁體中文化完成（zh-Hant-TW）、正式學術報告自公開網站與公開 API 完全分離、離線報告腳本與研究素材完整保留、通過 39 項自動化測試與 Next.js 生產編譯。
 - **架構調整與設計細節**：
   1. *網站改用繁體中文（zh-Hant-TW）*：
-     - **背景與目標**：為符合大學多元線性回歸作業與在地化展示需求，將網站主要語言規範為臺灣繁體中文（Traditional Chinese, Taiwan），消除所有簡體中文或純英文介面。
+     - **背景與目標**：為符合碩士班課程 HW2 多元線性回歸作業與在地化展示需求，將網站主要語言規範為臺灣繁體中文（Traditional Chinese, Taiwan），消除所有簡體中文或純英文介面。
      - **SEO 與 HTML**：於 `app/layout.tsx` 配置 `<html lang="zh-Hant-TW">`，更新 Metadata Title 為 `MLR Studio — 多元線性回歸與特徵選擇分析平台`，並提供流暢且專業的繁體中文 Description。
      - **英文專業術語保留策略**：保留重要機器學習與統計學英文術語並採括號並列方式，例如：多元線性回歸（Multiple Linear Regression）、特徵選擇（Feature Selection）、資料探索分析（EDA）、平均絕對誤差（MAE）、均方根誤差（RMSE）、決定係數（R²）、95% 預測區間（Prediction Interval）、95% 信賴區間（Confidence Interval）、遞迴特徵消除（RFE）、循序特徵選擇（SFS）、普通最小平方法（OLS）。
      - **資料完整性承諾**：未因介面翻譯而修改任何底層 Dataset 原始欄位名稱、JSON Key、API Endpoint、模型參數或變數名稱。
@@ -1110,3 +1111,22 @@ FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamli
      - 相對路徑驗證：`README.md`、`assets/screenshots/README.md`、`docs/submission_checklist.md` 所有相對檔案與圖片路徑 100% 存在且非空。
      - 後端與報告測試：`pytest tests/ -v` **57 passed, 0 failed**（正式報告與實驗 CSV SHA-256 零變動）。
      - 前端生產編譯：`npm run build` 100% 通過，公開網站與公開 API 零修改。
+
+### 2026-10-28: Correct Graduate-Level Course Identification (碩士班課程 HW2 學術層級定位更正)
+- **進度**：全面清查並更正專案文件、正式報告產生器、PDF 頁首／頁尾與 Notebook 標頭中誤植之學術層級與未核實校名／課程名稱描述，統一規範為「碩士班課程作業（Graduate-Level Course Project — HW2）」，嚴格避免誤稱為學士班作業或學位論文；重新執行 `--report-only` 更新正式 Markdown 與 PDF 報告；新增專屬自動化驗證測試（全套 `pytest` 達 **58 passed**）並通過 `npm run build`。
+- **更正明細**：
+  1. **`src/reporting.py` 與 `reports/final_report.md` / `reports/final_report.pdf`**：
+     - 正式報告主標題更新為 `# 碩士班課程 HW2 — 多元線性回歸專題研究報告`。
+     - 報告詮釋資料標明 `課程層級：碩士班課程作業（Graduate-Level Course Project）` 與 `作業項目：HW2 — Multiple Linear Regression Research Report`，移除未經核實之課程名稱。
+     - PDF 頁尾（`NumberedCanvas.draw_page_decorations`）更正為 `碩士班課程｜多元線性回歸專題研究`；跨頁頁首同步更新為 `碩士班課程 HW2 — CRISP-DM 多元線性回歸專題研究報告`，零虛構校名、系所或授課教師。
+     - 更新 `_load_notebooklm_research()` 之完整報告防重複嵌入偵測邏輯，同時攔截新版與舊版報告標題格式。
+  2. **`MyPlan/design.md`、`README.md`、`docs/submission_checklist.md` 與 Notebook 標頭**：
+     - 修正 `MyPlan/design.md` 專案背景與開發紀錄中誤植之學術層級字眼，保留真實開發歷史且不改寫 Git Commit 紀錄。
+     - 於 `README.md` 與 `docs/submission_checklist.md` 明確標示「碩士班課程作業（Graduate-Level Course Project — HW2）」，並將目錄樹中報告與圖表描述統一為「碩士班課程 HW2 正式研究報告」與「靜態研究圖表」。
+     - 將 `scripts/build_and_execute_notebooks.py` 與 `notebooks/student_performance_analysis.ipynb` 標頭更新為 `課程層級：碩士班課程作業（Graduate-Level Course Project — HW2）`。
+  3. **驗收與測試結果**：
+     - `python scripts/run_experiments.py --report-only`：成功重新產出 `reports/final_report.md` 與 13 頁 `reports/final_report.pdf`。
+     - Student 與 Flood 各 6 種特徵選擇比較表、R²／RMSE 實驗數值、NotebookLM 實際研究心得與 6 項參考文獻 100% 維持不變。
+     - `pytest tests/ -v`：**58 passed, 0 failed**（新增 `test_graduate_course_identification_and_legacy_guard` 逐頁檢查 PDF 頁首／頁尾、禁用詞彙清零與新舊標題防重複嵌入）。
+     - `npm run build`：Next.js 生產建置成功，網站前端與公開 API 零修改。
+

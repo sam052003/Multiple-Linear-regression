@@ -5,9 +5,10 @@
 [![Next.js](https://img.shields.io/badge/Next.js-14.2%20App%20Router-black.svg)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
 [![Deployment](https://img.shields.io/badge/Vercel-Serverless%20Monorepo-black.svg)](docs/deployment.md)
-[![Tests](https://img.shields.io/badge/pytest-57%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/pytest-58%20passed-brightgreen.svg)](tests/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
+> **課程定位**：碩士班課程作業（Graduate-Level Course Project — HW2）  
 > **GitHub Repository**：https://github.com/sam052003/Multiple-Linear-regression  
 > **核心設計文件 (Single Source of Truth)**：[MyPlan/design.md](MyPlan/design.md)  
 > **作業繳交檢查清單 (Submission Checklist)**：[docs/submission_checklist.md](docs/submission_checklist.md)  
@@ -213,8 +214,8 @@ HW2-Multiple Linear regression/
 │   ├── student_performance_analysis.ipynb
 │   └── flood_prediction_analysis.ipynb
 ├── reports/                          # [獨立成果] 正式研究報告與實驗數據 (不公開於網站)
-│   ├── final_report.md               # 論文形式正式報告 Markdown
-│   ├── final_report.pdf              # 論文形式正式報告 PDF (13 頁)
+│   ├── final_report.md               # 碩士班課程 HW2 正式研究報告 Markdown
+│   ├── final_report.pdf              # 碩士班課程 HW2 正式研究報告 PDF (13 頁)
 │   ├── notebooklm_summary.md         # Google NotebookLM 實際文獻研究心得與書目
 │   ├── figures/                      # 7 張高解析度靜態研究圖表
 │   ├── results/                      # 實驗預測與特徵比較 CSV
@@ -230,12 +231,12 @@ HW2-Multiple Linear regression/
 │   ├── evaluation.py                 # MAE, RMSE, R2, Adjusted R2 與 CV
 │   ├── statistical_tests.py          # 5 大回歸假設統計檢定與 VIF
 │   ├── prediction_intervals.py       # Statsmodels OLS 95% PI / CI 推論
-│   ├── visualization.py              # 靜態論文圖表生成模組
+│   ├── visualization.py              # 靜態研究圖表生成模組
 │   └── reporting.py                  # [離線用] 純函式動態報告與 PDF 產出
 ├── vercel.json                       # Vercel Monorepo 路由設定
 ├── package.json                      # Next.js 前端相依套件與腳本
 ├── requirements.txt                  # Python 完整相依套件清單
-├── tests/                            # 自動化測試套件 (pytest, 57 項全數通過)
+├── tests/                            # 自動化測試套件 (pytest, 58 項全數通過)
 │   ├── test_api.py                   # FastAPI REST API 整合測試 (含報告端點 404 檢驗)
 │   ├── test_data_loader.py           # 資料載入測試
 │   ├── test_custom_dataset.py        # SSRF 防護與資料檢核測試
@@ -269,7 +270,7 @@ pip install -r requirements.txt
 npm install
 ```
 
-### 3. 執行自動化測試 (57 項全數通過)
+### 3. 執行自動化測試 (58 項全數通過)
 ```bash
 pytest tests/ -v
 ```

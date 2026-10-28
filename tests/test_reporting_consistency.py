@@ -587,3 +587,76 @@ def test_official_pdf_extracts_notebooklm_summary_and_references():
     for url in expected_urls:
         assert url in compact_pdf_text, f"Reference URL '{url}' missing from official PDF!"
     assert "專案內部研究成果" in full_pdf_text
+
+
+def test_graduate_course_identification_and_legacy_guard(tmp_path):
+    """
+    Test 13: Verify graduate-level course identification (碩士班課程 HW2 / Graduate-Level Course Project)
+    across build_markdown_report(), official Markdown, official PDF (cover + headers + footers on all pages),
+    zero fabricated university/course names or wrong academic level terms, and full-report duplication guard
+    compatibility with both new and legacy report titles.
+    """
+    md_dynamic = build_markdown_report()
+    assert md_dynamic.startswith("# 碩士班課程 HW2 — 多元線性回歸專題研究報告\n")
+    assert "碩士班課程作業（Graduate-Level Course Project）" in md_dynamic
+
+    prod_md_path = os.path.join(REPORTS_DIR, "final_report.md")
+    prod_pdf_path = os.path.join(REPORTS_DIR, "final_report.pdf")
+    assert os.path.exists(prod_md_path)
+    assert os.path.exists(prod_pdf_path)
+
+    with open(prod_md_path, "r", encoding="utf-8") as f:
+        prod_md = f.read()
+
+    assert prod_md.startswith("# 碩士班課程 HW2 — 多元線性回歸專題研究報告")
+    assert "碩士班課程作業（Graduate-Level Course Project）" in prod_md
+
+    forbidden_terms = [
+        "國立大學",
+        "機器學習與統計數據分析",
+        "大學「多元線性回歸",
+        "大學『多元線性回歸",
+        "大學部",
+        "Bachelor",
+        "Undergraduate",
+        "Master's Thesis",
+        "碩士學位論文",
+        "碩士論文",
+    ]
+    for term in forbidden_terms:
+        assert term not in md_dynamic, f"Forbidden academic term '{term}' found in generated Markdown!"
+        assert term not in prod_md, f"Forbidden academic term '{term}' found in official final_report.md!"
+
+    with pdfplumber.open(prod_pdf_path) as pdf:
+        assert len(pdf.pages) >= 10
+        page1_text = pdf.pages[0].extract_text() or ""
+        assert "碩士班課程 HW2 — 多元線性回歸專題研究報告" in page1_text
+        assert "Graduate-Level Course Project" in page1_text
+
+        for p_idx, page in enumerate(pdf.pages):
+            page_text = page.extract_text() or ""
+            assert (
+                "碩士班課程｜多元線性回歸專題研究" in page_text
+            ), f"Graduate-level footer missing on PDF page {p_idx + 1}!"
+            if p_idx >= 1:
+                assert (
+                    "碩士班課程 HW2 — CRISP-DM 多元線性回歸專題研究報告" in page_text
+                ), f"Graduate-level running header missing on PDF page {p_idx + 1}!"
+            for term in forbidden_terms:
+                assert (
+                    term not in page_text
+                ), f"Forbidden academic term '{term}' found on PDF page {p_idx + 1}!"
+
+    # Verify full-report duplication guard blocks BOTH new and legacy report titles
+    for idx, header_variant in enumerate(
+        [
+            "# 碩士班課程 HW2 — 多元線性回歸專題研究報告\n\n內容段落",
+            "# 大學「多元線性回歸 (Multiple Linear Regression)」專題研究報告\n\n舊版內容",
+            "# 大學『多元線性回歸』專題研究報告\n\n舊版內容",
+        ]
+    ):
+        dup_path = tmp_path / f"dup_variant_{idx}.md"
+        dup_path.write_text(header_variant, encoding="utf-8")
+        with pytest.raises(ValueError, match="full research report"):
+            build_markdown_report(notebooklm_summary_path=str(dup_path))
+

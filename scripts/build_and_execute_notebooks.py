@@ -24,7 +24,7 @@ def create_student_notebook():
     cells.append(nbf.v4.new_markdown_cell("""# 學生表現因素多元線性回歸分析 (Student Performance Factors Analysis)
 ## 遵循 CRISP-DM 流程之資料理解、防洩漏前處理、特徵選擇、95% 預測區間與計量統計診斷
 
-- **研究課程**：機器學習與統計數據分析
+- **課程層級**：碩士班課程作業（Graduate-Level Course Project — HW2）
 - **主要資料集**：Kaggle Student Performance Factors (`lainguyn123/student-performance-factors`)
 - **資料性質揭露**：公開模擬／合成教育基準資料集 (Synthetic Educational Benchmark)，非真實學生田野調查
 - **目標變數**：`Exam_Score` (連續數值，範圍約 55～101 分)
