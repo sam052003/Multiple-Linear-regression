@@ -9,8 +9,9 @@
 
 ## 1. 核心與可選繳交項目總覽
 
-| 類別 | 項目名稱 | 檔案路徑 | 目前狀態 | 備註說明 |
+| 類別 | 項目名稱 | 檔案路徑／網址 | 目前狀態 | 備註說明 |
 | :--- | :--- | :--- | :---: | :--- |
+| **線上展示** | Vercel Production Live Demo | https://multiple-linear-regression-zeta.vercel.app/ | ✅ 已完成 | 已由 `main` 最新程式碼正式部署（`v2.0.0`），免登入公開存取，`/`、`/api/health`、`/api/datasets` 與 CRISP-DM 六階段全數實測 `200 OK` |
 | **互動系統** | Next.js 14 + FastAPI 互動分析平台 | [`app/`](../app/)、[`api/`](../api/)、[`src/`](../src/) | ✅ 已完成 | 繁體中文（`zh-Hant-TW`）CRISP-DM 六階段介面、3 組內建資料集與自訂 CSV（含逐跳 SSRF 防護） |
 | **系統截圖** | 6 張實際執行系統畫面截圖 | [`assets/screenshots/`](../assets/screenshots/) | ✅ 已完成 | `01_overview.png` ～ `06_custom_dataset.png` 均由真實 Next.js 系統畫面擷取 |
 | **研究報告** | 正式 CRISP-DM 研究報告（PDF） | [`reports/final_report.pdf`](../reports/final_report.pdf) | ✅ 已完成 | 共 13 頁出版級繁體中文排版，含完整六方法比較表、統計檢定、NotebookLM 心得與參考文獻 |

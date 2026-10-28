@@ -6,7 +6,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
 [![Deployment](https://img.shields.io/badge/Vercel-Serverless%20Monorepo-black.svg)](docs/deployment.md)
 [![Tests](https://img.shields.io/badge/pytest-58%20passed-brightgreen.svg)](tests/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 > **課程定位**：碩士班課程作業（Graduate-Level Course Project — HW2）  
 > **GitHub Repository**：https://github.com/sam052003/Multiple-Linear-regression  
@@ -17,10 +17,9 @@
 
 ## 🚀 Live Demo
 
-- **Vercel 專案穩定網域（Production Domain）**：https://multiple-linear-regression-zeta.vercel.app/
-  - **可訪問性實測說明**：此網域為 Vercel 專案設定之公開穩定網域（免登入可直接開啟首頁，HTTP `200`）。由於目前最新繁體中文介面與獨立報告分離架構位於 `migration/vercel` 分支，合併前依作業規範暫不執行 Production Deployment，因此該穩定網域目前仍停留在初始部署版本（`/api/health` 將於 `migration/vercel` 合併至 `main` 觸發正式部署後自動更新為 `200 OK`）。
-- **`migration/vercel` 最新預覽部署（Preview Deployment）**：https://multiple-linear-regression-6vvr46i3k-cwa-weather-project.vercel.app/
-  - **可訪問性實測說明**：部署狀態為 `● Ready`，經 Vercel CLI 實測後端 `/api/health` 回傳 `200 OK`（`v2.0.0`）；惟受 Vercel 團隊預設 Deployment Protection（Standard Protection）保護，未登入團隊帳號之外部瀏覽器開啟時會導向 Vercel SSO 驗證（HTTP `302`）。待 Pull Request 合併至 `main`（或於 Vercel Project Settings 關閉 Deployment Protection）後即可完全免登入公開體驗。
+- **正式線上展示網址（Vercel Production）**：https://multiple-linear-regression-zeta.vercel.app/
+  - **免登入公開存取**：外部瀏覽器無須登入任何帳號即可直接開啟與操作完整系統（首頁 HTTP `200`，HTML `lang="zh-Hant-TW"` 臺灣繁體中文介面）。
+  - **前後端實測狀態**：已由 `main` 最新正式版本部署上線（`● Ready`）；後端 `/api/health`（`{"status":"ok","version":"2.0.0"}`）與 `/api/datasets` 均實測回傳 HTTP `200 OK`，CRISP-DM 六大分析階段、單筆 95% CI/PI 預測推論與自訂 CSV 載入／Target 切換功能全數通過線上驗收（公開報告路由 `/api/reports/*` 依分離規範維持 HTTP `404`）。
 
 ---
 

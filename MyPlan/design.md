@@ -5,7 +5,7 @@
 > **課程層級定位**：碩士班課程作業（Graduate-Level Course Project — HW2）  
 > **GitHub Repository**：[https://github.com/sam052003/Multiple-Linear-regression.git](https://github.com/sam052003/Multiple-Linear-regression.git)  
 > **主要開發語言與框架**：Python 3.12+ / 3.14, Next.js 14, FastAPI, Scikit-learn, Statsmodels, Plotly  
-> **狀態**：已完成最終驗收與繳交整備 (`migration/vercel`)  
+> **狀態**：已完成 `main` 合併、Vercel Production 正式部署與最終繳交驗收  
 > **最後更新時間**：2026-10-28  
 
 ---
@@ -1129,4 +1129,28 @@ FastAPI 透過 Pydantic v2 嚴格定義 Request / Response Schema，與 Streamli
      - Student 與 Flood 各 6 種特徵選擇比較表、R²／RMSE 實驗數值、NotebookLM 實際研究心得與 6 項參考文獻 100% 維持不變。
      - `pytest tests/ -v`：**58 passed, 0 failed**（新增 `test_graduate_course_identification_and_legacy_guard` 逐頁檢查 PDF 頁首／頁尾、禁用詞彙清零與新舊標題防重複嵌入）。
      - `npm run build`：Next.js 生產建置成功，網站前端與公開 API 零修改。
+
+### 2026-10-28: Final Merge to `main`, Vercel Production Deployment & Live Submission Verification (最終合併、正式環境部署與線上驗收)
+- **進度**：完成 `migration/vercel` 合併至 `main`（Merge Commit `a91fe1862a9f514b43cfd143df253dc2e09a331c`）；查明 Vercel Production 先前未隨 PR 合併自動更新之根因並以授權 Vercel CLI 完成最新 `main` 正式部署；執行無登入狀態全端點與 CRISP-DM 六階段線上驗收；更新 `README.md` 與 `docs/submission_checklist.md` 最終部署資訊並同步回 `main` 與 Vercel Production。
+- **根因查核與專案設定確認**：
+  1. **Vercel 專案識別**：Team `cwa-weather-project`、Project `multiple-linear-regression`（`prj_6ez41SKCmgLOY90cJsHakVq3qfcy`）、Framework `Next.js`（Node.js `24.x`）、Production Alias `https://multiple-linear-regression-zeta.vercel.app/`。
+  2. **合併後未自動觸發 Production 部署之原因**：該 Vercel 專案最初由 Vercel CLI 直接建立，尚未於 GitHub 端為 `cwa-weather-project` 團隊安裝／授權 `sam052003/Multiple-Linear-regression` 之 GitHub App 存取權（`vercel project inspect` 無綁定 Git Repository），因此 GitHub `main` 合併事件未觸發自動 Webhook，使正式網域停留在早期 CLI 部署 `dpl_Ez5dYRBSs9DAMZsa9xJnJRFtiUx2`。
+  3. **Deployment Protection 檢查**：Vercel Standard Protection 僅保護團隊預覽網址（`*.cwa-weather-project.vercel.app`），公開正式網域 `https://multiple-linear-regression-zeta.vercel.app/` 完全免登入公開開放（無 SSO `302` 轉址）。
+- **正式環境線上驗收結果 (`https://multiple-linear-regression-zeta.vercel.app/`)**：
+  1. **首頁 (`/`)**：無登入請求直接回傳 HTTP `200`，`<html lang="zh-Hant-TW">`，完整呈現臺灣繁體中文介面（`MLR Studio — 多元線性回歸與特徵選擇分析平台`）。
+  2. **後端核心 API**：
+     - `GET /api/health`：HTTP `200`，回傳 `{"status":"ok","version":"2.0.0","message":"Multiple Linear Regression API is running"}`。
+     - `GET /api/datasets`：HTTP `200`，正確回傳 `50_startups`、`student_performance`、`flood_probability` 三組內建資料集詮釋資料。
+     - 報告分離檢查：`GET /api/reports/markdown` 與 `GET /api/reports/pdf` 均回傳 HTTP `404`，嚴格保護獨立學術報告不於公開網站暴露。
+  3. **CRISP-DM 六階段與自訂 CSV 實測**：
+     - **Stage 1 & 2 (Overview & Data Understanding)**：`Student Performance`（6,607 筆、19 特徵、14~39 合規）、`Flood Probability`（30,000 筆、20 特徵、`id` 排除）、`50 Startups` 動態切換 Target（`R&D Spend`）與相關係數統計正常。
+     - **Stage 3 (Data Preparation)**：訓練／測試 80/20 切分（`5,285 / 1,322`），測試集 `R² = 0.769650`、`RMSE = 1.804445`。
+     - **Stage 4 (Feature Selection)**：Baseline 與 5 種方法（`SelectKBest`、`RFE`、`SFS Forward`、`LassoCV`、`Permutation Importance`）完整 6 列比較表正常回傳。
+     - **Stage 5 (Evaluation)**：五大回歸假設檢定（`linearity`、`independence`、`homoscedasticity`、`normality`、`multicollinearity`）與 95% CI / PI 區間樣本正常輸出。
+     - **Stage 6 (Prediction)**：單筆推論回傳點預測 `67.1204`、95% CI `[66.8700, 67.3708]`、95% PI `[63.0140, 71.2267]`（PI 嚴格寬於 CI）。
+     - **Custom CSV**：上傳 40 筆自訂 CSV、切換 Target 欄位、無狀態訓練（`32/8` 切分）與單筆預測完整閉環通過。
+- **最終回歸測試與構建**：
+  - `pytest tests/ -v`：**58 passed, 0 failed**（正式報告與實驗 CSV SHA-256 零變動）。
+  - `npm run build`：Next.js 生產構建與靜態頁面生成（`4/4`）100% 通過。
+
 
